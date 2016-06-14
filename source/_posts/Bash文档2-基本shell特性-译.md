@@ -146,7 +146,7 @@ Bash提供了下面几种循环结构:
 
 test-commands列表被执行，返回0时对应的consequent-commands列表被执行。如果if中的test-commands返回非0值，则elif中的test-commands被依次测试，第一个返回为0的对应的命令列表被执行，然后整个命令结束。如果给出else保留字则当前面的都返回非0值时执行else后面的consequent命令列表。整个结构的返回值是最后一个执行的命令的返回值，如果都没有被执行到则返回0(原文 or zero if no condition tested true)
 
-    case **word** in [ [(] pattern [| **pattern**]…) command-list ;;]… esac
+    case word in [ [(] pattern [| pattern]…) command-list ;;]… esac
 
 如果word匹配pattern则相应的command-list会被执行。如果shell选项nocasematch启用，则case在匹配时不区分字母大小写。可以使用 `|` 来分隔多个pattern，使用`)`来结束pattern列表。pattern列表和对应的command-list称为一个子句
 
