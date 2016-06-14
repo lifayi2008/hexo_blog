@@ -2,7 +2,7 @@
 title: 使用Hexo+github搭建博客
 date: 2016-06-13 09:27:41
 tags: [hexo,github]
-categories: others
+categories: Others
 ---
 
 #### 安装nodejs环境
@@ -50,7 +50,7 @@ $ npm install hexo-deployer-rsync --save
 //npm install hexo-deployer-heroku --save
 ```
 
-#### 生成博客静态文件并启动内置web服务器进行预览
+#### 生成博客静态文件并预览
 
 ```bash
 $ hexo generate       //如果未提示错误表示生成静态网站成功
