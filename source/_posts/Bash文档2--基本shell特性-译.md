@@ -267,19 +267,15 @@ FUNCNEST变量如果设置为大于零则表示函数调用的最大层数，函
 
 参数是一个用来存储值的实体。参数名可以是前文中（术语一节）的name或者一个数字或者是下文中的一些特殊字符。变量是指用名字来指代一个参数。变量可以有零个或者多个属性。属性的分配使用内置命令declare
 
-初次给一个参数赋值就定义了这个参数。null字符也是一个合法的值。定义一个参数之后可以使用内置命令unset来取消
+初次给一个参数赋值就定义了这个参数。null字符也是一个合法的值。定义一个参数之后可以使用内置命令`unset`来取消
 
-变量可以使用这一的语句来赋值 name=[value]
+变量可以使用这一的语句来赋值 `name=[value]`
 
 如果未给出value值，则变量被赋予空值。所有的value都要经历 *tidle expansion、parameter/variable expansion、command substitution、arithmetic expansion、qoute removal。*如果一个变量被设置了整型的属性，则表达式中的变量会作为数字进行数学运算，即使没有使用`$(())`的结构。变量赋值时value不会进行 *word splitting和pathname expansion，* 有一个特例是`$@`，下面有相关描述。赋值语句也可以出现在`alias` `declare` `typeset` `export` `readonly`和`local`内置命令后面作为参数。When in POSIX mode (see Bash POSIX Mode), these builtins may appear in a command after one or more instances of the command builtin and retain these assignment statement properties.
 
 在使用赋值语句给一个变量和索引数组赋值的时候，`+=`操作符可以用来追加一个值到变量原来的值上。当变量名有整型的属性时，会进行数学运算。当使用compound command(圆括号)结构将一个或者多个值追加到一个数组变量时，数组索引会依次增大并且将对应的值依次赋给对应的索引，当使用`=`号操作符时，表示替换整个数组变量；当使用关联数组时依然可用。当变量没有这些属性时(默认是字符串)，则会将value连接到原来的值的后面
 
-A variable can be assigned the nameref attribute using the -n option to the \fBdeclare\fP or \fBlocal\fP builtin commands (see Bash Builtins) to create a nameref, or a reference to another variable. This allows variables to be manipulated indirectly. Whenever the nameref variable is referenced or assigned to, the operation is actually performed on the variable specified by the nameref variable’s value. A nameref is commonly used within shell functions to refer to a variable whose name is passed as an argument to the function. For instance, if a variable name is passed to a shell function as its first argument, running
-
-    declare -n ref=$1
-
-inside the function creates a nameref variable ref whose value is the variable name passed as the first argument. References and assignments to ref are treated as references and assignments to the variable whose name was passed as $1.
+A variable can be assigned the nameref attribute using the -n option to the \fBdeclare\fP or \fBlocal\fP builtin commands (see Bash Builtins) to create a nameref, or a reference to another variable. This allows variables to be manipulated indirectly. Whenever the nameref variable is referenced or assigned to, the operation is actually performed on the variable specified by the nameref variable’s value. A nameref is commonly used within shell functions to refer to a variable whose name is passed as an argument to the function. For instance, if a variable name is passed to a shell function as its first argument, running `declare -n ref=$1` inside the function creates a nameref variable ref whose value is the variable name passed as the first argument. References and assignments to ref are treated as references and assignments to the variable whose name was passed as $1.
 If the control variable in a for loop has the nameref attribute, the list of words can be a list of shell variables, and a name reference will be established for each word in the list, in turn, when the loop is executed. Array variables cannot be given the -n attribute. However, nameref variables can reference array variables and subscripted array variables. Namerefs can be unset using the -n option to the unset builtin (see Bourne Shell Builtins). Otherwise, if unset is executed with the name of a nameref variable as an argument, the variable referenced by the nameref variable will be unset.
 
 ##### 位置参数
@@ -292,7 +288,7 @@ If the control variable in a for loop has the nameref attribute, the list of wor
 
 **$\***：参数展开为所有的位置参数。当参数展开不在双引号中进行时，每一个位置参数展开为单个的word。根据上下文这些words会进一步使用 *word splitting*和 *pathname expansion*来进行处理。当位置参数在双引号中展开时，所有的位置参数扩展为一个word(在双引号中)，并且每个位置参数使用shell内置分隔符IFS的第一个字符来分割，如果IFS未设置则默认是空格，如果IFS设置为null则所有的位置参数连接在一起
 
-**$@**：参数展开为所有的位置参数。当参数展开没有在双引号中时，和`$*`完全一样。当位置参数在双引号中展开时，每个位置参数展开为单个的word，`$@`等同于"$1" "$2"....。If the double-quoted expansion occurs within a word, the expansion of the first parameter is joined with the beginning part of the original word, and the expansion of the last parameter is joined with the last part of the original word.如果没有位置参数，`$@`和`$@`都展开为空（被移除）
+**$@**：参数展开为所有的位置参数。当参数展开没有在双引号中时，和`$*`完全一样。当位置参数在双引号中展开时，每个位置参数展开为单个的word，`$@`等同于`"$1"` `"$2"` `....`。如果双引号引起来的`$@`或者`$*`包含在一个word中，则扩展的结果是：第一个参数连接着word的开始部分，然后是空格，然后第二个参数，最后一个参数连接着word的结束的部分。如果没有位置参数，`$@`和`$@`都展开为空（被移除）
 
 **$#**：展开为位置参数的个数
 
