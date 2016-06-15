@@ -15,7 +15,7 @@ categories: Bash
 *   filename expansion
 <!-- more -->
 
-扩展操作的顺序就是上面给出列表的先后顺序。并且从左到右
+扩展操作的顺序就是上面给出列表的先后顺序；并且从左到右
 
 如果系统支持，还有另外一种扩展：process substitution。这种扩展和tilde、parameter variable 和arithmetic expansion和command substitution一起进行
 
