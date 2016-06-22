@@ -90,9 +90,7 @@ $ RAILS_ENV=production bundle exec rake redmine:load_default_data
 
 ##### 更改Linux环境相关目录的权限
 
-如果你使用其他用户启动redmine，那么请保证那个用户对redmine目录下的`files` `log` `tmp` `tmp/pdf` `public/plugin_assets`目录有写权限
-
-比如：
+如果你使用其他用户启动redmine，那么请保证那个用户对redmine目录下的`files` `log` `tmp` `tmp/pdf` `public/plugin_assets`目录有写权限，比如：
 ```bash
 $ mkdir -p tmp tmp/pdf public/plugin_assets
 $ sudo chown -R redmine:redmine files log tmp public/plugin_assets
@@ -105,7 +103,149 @@ $ sudo chmod -R 755 files log tmp public/plugin_assets
 $ bundle exec rails server webrick -e production -b 192.168.1.202
 
 192.168.1.202为你的服务器IP地址
+
+可以使用默认用户名密码 admin/admin登陆查看
+```
+
+##### 使用其他服务器运行redmine
+
+安装thin
+```bash
+编辑redmine根目录下的Gemfile文件，在全局的配置中添加两行：
+gem "faye"
+gem "thin"
+
+重新进行bundle
+$ /usr/local/ruby/bin/bundle install --without development test
+
+创建thin的配置文件
+mkdir /etc/thin/
+```
+
+编辑thin配置文件`/etc/thin/redmine.yml`，内容如下：
+```bash
+pid: tmp/pids/thin.pid
+group: root
+wait: 30
+timeout: 30
+log: log/thin.log
+max_conns: 1024
+require: []
+
+environment: production
+max_persistent_conns: 512
+servers: 4
+daemonize: true
+user: root
+socket: /tmp/thin.sock
+chdir: /data/redmine-3.3.0 
+```
+
+启动thin
+```bash
+$ thin -C /etc/thin/redmine.yml start
+```
+
+配置nginx
+
+nginx包含的配置文件`proxy.include`内容如下：
+
+```bash
+proxy_set_header   Host $http_host;
+proxy_set_header   X-Real-IP $remote_addr; 
+proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header   X-Forwarded-Proto $scheme;
+client_max_body_size       10m;
+client_body_buffer_size    128k;
+proxy_connect_timeout      90;
+proxy_send_timeout         90;
+proxy_read_timeout         90;
+proxy_buffer_size          4k;
+proxy_buffers              4 32k;
+proxy_busy_buffers_size    64k;
+proxy_temp_file_write_size 64k;
+```
+
+nginx配置文件如下：
+
+```bash
+upstream thin_cluster {
+    server unix:/tmp/thin.0.sock;
+    server unix:/tmp/thin.1.sock;
+    server unix:/tmp/thin.2.sock;
+    server unix:/tmp/thin.3.sock;
+}
+
+server {
+    listen       your.ip.address.here:80;
+    server_name  your.domain.name;
+
+    access_log  /var/log/nginx/redmine-proxy-access;
+    error_log   /var/log/nginx/redmine-proxy-error;
+
+    include sites/proxy.include;
+    root /var/lib/redmine/redmine/public;
+    proxy_redirect off;
+
+    # Send sensitive stuff via https
+    rewrite ^/login(.*) https://your.domain.here$request_uri permanent;
+    rewrite ^/my/account(.*) https://your.domain.here$request_uri permanent;
+    rewrite ^/my/password(.*) https://your.domain.here$request_uri permanent;
+    rewrite ^/admin(.*) https://your.domain.here$request_uri permanent;
+
+    location / {
+        try_files $uri/index.html $uri.html $uri @cluster;
+    }
+
+    location @cluster {
+        proxy_pass http://thin_cluster;
+    }
+}
+
+server {
+    listen       your.ip.address.here:443;
+    server_name  your.domain.here;
+
+    access_log  /var/log/nginx/redmine-ssl-proxy-access;
+    error_log   /var/log/nginx/redmine-ssl-proxy-error;
+
+    ssl on;
+
+    ssl_certificate /etc/ssl/startssl/your.domain.here.pem.full;
+    ssl_certificate_key /etc/ssl/startssl/your.domain.here.key;
+
+    include sites/proxy.include;
+    proxy_redirect off;
+    root /var/lib/redmine/redmine/public;
+
+    # When we're back to non-sensitive things, send back to http
+    rewrite ^/$ http://your.domain.here$request_uri permanent;
+
+    # Examples of URLs we don't want to rewrite (otherwise 404 errors occur):
+    # /projects/PROJECTNAME/archive?status=
+    # /projects/copy/PROJECTNAME
+    # /projects/PROJECTNAME/destroy
+
+    # This should exclude those (tested here: http://www.regextester.com/ )
+    if ($uri !~* "^/projects/.*(copy|destroy|archive)") {
+        rewrite ^/projects(.*) http://your.domain.here$request_uri permanent;
+    }
+
+    rewrite ^/guide(.*) http://your.domain.here$request_uri permanent;
+    rewrite ^/users(.*) http://your.domain.here$request_uri permanent;
+    rewrite ^/my/page(.*) http://your.domain.here$request_uri permanent;
+    rewrite ^/logout(.*) http://your.domain.here$request_uri permanent;
+
+    location / {
+        try_files $uri/index.html $uri.html $uri @cluster;
+    }
+
+    location @cluster {
+        proxy_pass http://thin_cluster;
+    }
+}
 ```
 
 参考：
-[redmine wiki](https://www.redmine.org/projects/redmine/wiki/RedmineInstall)
+[**`redmine wiki`**](https://www.redmine.org/projects/redmine/wiki/RedmineInstall)
+[**`redmine thin`**](http://www.redmine.org/projects/redmine/wiki/HowTo_configure_Nginx_to_run_Redmine)
