@@ -246,6 +246,25 @@ server {
 }
 ```
 
+##### redmine的迁移和升级提示
+
+redmine的备份只需要备份数据库和redmine根目录下的`files`文件夹即可；所以迁移的话只需要将备份的数据库和files文件进行覆盖
+
+如果是升级/全新安装新的版本，则需要执行下面的步骤：
+```bash
+1. 安装上面的步骤进行全新安装
+2. 删除redmine数据库和files文件夹（或者备份）
+3. 将你的原备份的数据库和文件进行覆盖
+4. 执行下面的数据库集成和清理操作
+
+$ bundle exec rake db:migrate RAILS_ENV=production
+$ bundle exec rake tmp:cache:clear tmp:sessions:clear RAILS_ENV=production
+
+$ bundle exec rake generate_secret_token
+```
+
+
 参考：
 [**`redmine wiki`**](https://www.redmine.org/projects/redmine/wiki/RedmineInstall)
 [**`redmine thin`**](http://www.redmine.org/projects/redmine/wiki/HowTo_configure_Nginx_to_run_Redmine)
+[**`redmine upgrade`**](https://www.redmine.org/projects/redmine/wiki/RedmineUpgrade)
