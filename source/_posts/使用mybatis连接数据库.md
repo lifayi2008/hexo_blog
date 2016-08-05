@@ -11,7 +11,7 @@ categories: java
 ##### 主配置文件
 
 resources/mybatis-config.xml
-```java
+```xml
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE configuration
         PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
@@ -39,7 +39,7 @@ resources/mybatis-config.xml
 ##### 映射文件
 
 resources/mapper/BlogMapper.xml
-```java
+```xml
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
