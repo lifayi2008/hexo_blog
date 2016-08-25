@@ -635,6 +635,212 @@ http {
     }
 }
 ```
+#### 管理SSL连接
+
+##### 设置一个HTTPS服务器
+
+要设置https服务，只需要在配置文件的server配置块中listen配置项后面加上ssl选项值，然后指定服务器证书和私钥文件的路径即可：
+```bash
+server {
+    listen              443 ssl;
+    server_name         www.example.com;
+    ssl_certificate     www.example.com.crt;
+    ssl_certificate_key www.example.com.key;
+    ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ...
+}
+```
+
+服务器证书就是公钥，会发送给所有连接到本服务器的客户端。私钥应该放置在一个访问受限的安全的位置，只允许服务器master进程读取私钥文件。服务器证书和私钥也可以存储与同一个文件中：
+    
+    ssl_certificate www.example.com.cert;
+    ssl_certificate_key www.example.com.cert;
+    
+这种情况下这个文件的访问要受到限制。尽管服务器证书和私钥放置在同一个文件中，但是客户端连接时Nginx只会把公钥发送给客户端
+
+`ssl_protocols` `ssl_ciphers`配置项可以用来限制只能使用特定版本的安全协议和安全套件
+
+1.0.5版本的Nginx默认使用`ssl_protocols SSLv3 TLSv1 和 ssl_ciphers HIGH:!aNULL:!MD5`；从版本1.1.13和1.0.12，默认使用`ssl_protocols SSLv3 TLSv1 TLSv1.1 TLSv1.2`
+
+旧的安全套件设计中常常有一些缺陷，明智的做法是在现在的Nginx配置中禁用他们（但是可能会有一些需要向后兼容的需求让你不太那么容易使用最新的安全套件）。请注意CBC-mode安全套件可能遭受到一些安全攻击，目前使用SSLv3是避免这些攻击的最好办法
+
+##### HTTPS服务器优化
+
+SSL加密服务会额外消耗一些CPU资源。最耗资源的是SSL协议的握手阶段。下面两种方法可以用来减少这些操作：
+*   启用长连接来在同一个连接中发送多个资源
+*   重用SSL会话的参数可以在并发和后续连接建立时减少SSL握手的操作
+
+可以使用`ssl_session_cache`配置项启用ssl会话缓存功能，Sessions被存储在SSL会话缓存中并且被所有worker进程共享。1M的缓存大概可以存储4000个Sessions。默认的缓存超时时间是5分钟，这个时间可以使用`ssl_session_timeout`配置项来更改。下面是一个优化配置的示例：
+```bash
+worker_processes auto;
+
+http {
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    server {
+        listen              443 ssl;
+        server_name         www.example.com;
+        keepalive_timeout   70;
+
+        ssl_certificate     www.example.com.crt;
+        ssl_certificate_key www.example.com.key;
+        ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+        ...
+    }
+}
+```
+
+##### SSL证书链
+
+虽然我们的证书已经被权威证书机构签名，但是还有有一些浏览器提示不能验证证书的签名。这可能是因为给我们证书签名的权威证书机构使用的是他们签过名的中间证书，而这些中间证书可能并没有内置到浏览器中。这种情况下我们应该将权威证书机构提供的一系列中间证书连接到我们的服务器证书文件中。我们的服务器证书必须出现在中间证书之前：
+```bash
+$ cat www.example.com.crt bundle.crt > www.example.com.chained.crt
+```    
+
+然后使用这个证书来替代之前的服务器证书：
+```bash
+server {
+    listen              443 ssl;
+    server_name         www.example.com;
+    ssl_certificate     www.example.com.chained.crt;
+    ssl_certificate_key www.example.com.key;
+    ...
+}
+```
+
+浏览器通常会缓存这些接收到并且已经被内置权威证书验证过的中间证书。然后我们的服务器证书可以被这些中间证书验证，这样浏览器就不会报警告了。要确保服务器会发送完整的证书链到客户端我们可以使用openssl客户端工具进行验证：
+```bash
+$ openssl s_client -connect www.godaddy.com:443
+...
+Certificate chain
+ 0 s:/C=US/ST=Arizona/L=Scottsdale/1.3.6.1.4.1.311.60.2.1.3=US
+     /1.3.6.1.4.1.311.60.2.1.2=AZ/O=GoDaddy.com, Inc
+     /OU=MIS Department/CN=www.GoDaddy.com
+     /serialNumber=0796928-7/2.5.4.15=V1.0, Clause 5.(b)
+   i:/C=US/ST=Arizona/L=Scottsdale/O=GoDaddy.com, Inc.
+     /OU=http://certificates.godaddy.com/repository
+     /CN=Go Daddy Secure Certification Authority
+     /serialNumber=07969287
+ 1 s:/C=US/ST=Arizona/L=Scottsdale/O=GoDaddy.com, Inc.
+     /OU=http://certificates.godaddy.com/repository
+     /CN=Go Daddy Secure Certification Authority
+     /serialNumber=07969287
+   i:/C=US/O=The Go Daddy Group, Inc.
+     /OU=Go Daddy Class 2 Certification Authority
+ 2 s:/C=US/O=The Go Daddy Group, Inc.
+     /OU=Go Daddy Class 2 Certification Authority
+   i:/L=ValiCert Validation Network/O=ValiCert, Inc.
+     /OU=ValiCert Class 2 Policy Validation Authority
+     /CN=http://www.valicert.com//emailAddress=info@valicert.com
+...
+```
+
+本例中主体为`s`的`www.godaddy.com`的服务器证书`#0`是由证书发行者`i`签名的，而`i`又是`#1`证书的主体。证书`#1`的签发者又是证书`#2`的主体。而证书`#2`是由权威证书发行商`ValliCert Inc`签名的，后者的证书是内置于我们的浏览器中
+
+如果没有将中间证书添加到服务器证书中，则只有服务证书`#0`被显示
+
+##### A Single HTTP/HTTPS Server
+
+我们可以将含有`ssl`配置项值的`listen`配置项加入到一个`server`配置块中来让这个server可以同时处理HTTP和HTTPS的请求：
+```bash
+server {
+    listen              80;
+    listen              443 ssl;
+    server_name         www.example.com;
+    ssl_certificate     www.example.com.crt;
+    ssl_certificate_key www.example.com.key;
+    ...
+}
+```
+在0.7.13版本之前的nginx需要使用`ssl`配置项来启用server的HTTPS处理能力，所以被配置`ssl`配置项的server配置块就不能处理非HTTPS的请求；现在可以用在`listen`配置项后面加上`ssl`配置值的方法来启用HTTPS所以可以使用上面的配置方法
+
+##### 基于主机名的HTTPS服务器
+
+如果有多个使用HTTPS的servers需要在同一个IP地址接收请求的话就会有问题：
+```bash
+server {
+    listen          443 ssl;
+    server_name     www.example.com;
+    ssl_certificate www.example.com.crt;
+    ...
+}
+
+server {
+    listen          443 ssl;
+    server_name     www.example.org;
+    ssl_certificate www.example.org.crt;
+    ...
+}
+```
+
+如果使用上面的配置方法，则客户端会收到默认的服务器证书，在本例中是`www.example.com`，即使你请求的是第二个server的主机名。这是由于SSL协议特定导致的，因为在nginx收到客户端的http请求之前（能拿到客户都请求中的HOST字段值），首先要建立SSL连接，这时候就需要服务器端证书了。所以nginx只能提供默认的服务器证书
+
+解决这个问题最好的方法是给每一个启用HTTPS的server使用不同的IP地址：
+```bash
+server {
+    listen          192.168.1.1:443 ssl;
+    server_name     www.example.com;
+    ssl_certificate www.example.com.crt;
+    ...
+}
+
+server {
+    listen          192.168.1.2:443 ssl;
+    server_name     www.example.org;
+    ssl_certificate www.example.org.crt;
+    ...
+}
+```
+
+注意还有一些关于HTTPS upstreams的特殊的设置（`proxy_ssl_ciphers /proxy_ssl_protocols` `proxy_ssl_session_reuse`）可以用来调优Nginx和上游服务器之间的SSl传输
+
+###### 多个主机名使用同一个证书
+
+有另外一些方法来让多个HTTPS servers使用同一个IP地址，但他们都有一些不足的地方。一种方法是在证书的`SubjectAltName`字段使用多个主机名，比如`www.example.org` `www.example.com`。但是要注意的是`SubjectAltName`字段的长度是有限制的
+
+另外一种方式是使用通配型的证书，比如`*.example.org`。这样这个证书就可以验证所有`example.org`的子域名（主机名）；但是这里的通配符`*`只能指代一级，即不能用这个证书验证`www.subdomain.example.org`主机名。证书的`SubjectAltName`字段值可以混合精确的主机名和通配的主机名
+
+这样我们可以将指定证书的配置项放在`http`配置块中：
+```bash
+ssl_certificate     common.crt;
+ssl_certificate_key common.key;
+
+server {
+    listen          443 ssl;
+    server_name     www.example.com;
+    ...
+}
+
+server {
+    listen          443 ssl;
+    server_name     www.example.org;
+    ...
+}
+```
+
+###### Server Name Indication
+
+另外一在同一个IP地址上支持多个HTTPS servers的方法是使用TLS的SNI扩展，但是目前支持这个扩展的浏览器比较少
+
+##### 兼容性提示
+
+*   The SNI support status has been shown by the “-V” switch since versions 0.8.21 and 0.7.62.
+*   The ssl parameter of the listen directive has been supported since version 0.7.14. Prior to version 0.8.21 it could only be specified along with the default parameter.
+*   SNI has been supported since version 0.5.32.
+
+*   The shared SSL session cache has been supported since version 0.5.6.
+
+*   From version 0.7.65, 0.8.19 and later the default SSL protocols are SSLv3, TLSv1, TLSv1.1, and TLSv1.2 (if supported by the OpenSSL library).
+
+*   From version 0.7.64, 0.8.18 and earlier the default SSL protocols are SSLv2, SSLv3, and TLSv1.
+
+*   From version 1.0.5 and later the default SSL ciphers are HIGH:!aNULL:!MD5
+*   From version 0.7.65, 0.8.20 and later the default SSL ciphers are HIGH:!ADH:!MD5
+*   From version 0.8.19 the default SSL ciphers are ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM
+*   From version 0.7.64, 0.8.18 and earlier the default SSL ciphers are ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP
 
 原文地址：
 [**`Nginx admin guide and tutorial`**](https://www.nginx.com/resources/admin-guide/?_ga=1.220252177.848255972.1471312696)
