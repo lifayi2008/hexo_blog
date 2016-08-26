@@ -4,8 +4,6 @@ date: 2016-08-25 16:58:07
 tags: MySQL
 categories: 数据库
 ---
-### MySQL数据类型
-
 #### 字面值类型（Literal value）
 
 MySQL能够识别和使用的字面值类型包括：**`数值`**、**`字符串`**、**`日期/时间值`**、**`十六进制值`**、**`位字段值`**、**`布尔值`**、**`空值`**（NULL）
@@ -145,3 +143,135 @@ MySQL支持十六进制的字面值，可以使用`X'val'` `x'val'`的形式（�
 空值意味着没有数据。`NULL`可以任意大小写。`NULL`等同于`\N`
 
 在使用`LOAD DATA INFILE` `SELECT ... INTO OUTFILE`语句导入或者导出的文件中`NULL`使用`\N`表示
+
+#### 存储类型
+
+##### 数值类型
+
+**`BIT[(M)]`**  
+位字段类型，`M`表示bit的个数，可设置为1~64默认是1
+
+在下面整型的描述中，修饰符 `M` 表示整型的最大显示宽度，与相关类型可以存储的值的大小无关，最大可设置为255
+
+**`TINYINT[(M)] [UNSIGNED] [ZEROFILL]`**  
+非常小的整数，占1个字节，可以设置的值的范围是`-128~127`或者`0~255`
+
+**`BOOL, BOOLEAN`**  
+等同于`TINYINT(1)`，可以设置为`0` `false` `true`和非零的TINYINT值；false等同于0，true等同于1，但是反过来0等同于false，非0值等同于true
+
+**`SMALLINT[(M)] [UNSIGNED] [ZEROFILL]`**  
+小整数，占2个字节，可以设置的值的范围是`-32768~32767`或者`0~65535`
+
+**`MEDIUMINT[(M)] [UNSIGNED] [ZEROFILL]`**  
+中等整数，占3个字节，可以设置的值的范围是`-8388608 ~8388607`或者`0~16777215`
+
+**`INT/INTEGER[(M)] [UNSIGNED] [ZEROFILL]`**  
+整数，占4个字节，可以设置的值的范围是`-2147483648~2147483647`或者`0~4294967295`
+
+**`BIGINT[(M)] [UNSIGNED] [ZEROFILL]`**  
+大整数，占8个字节，可以设置的值的范围是`-9223372036854775808~9223372036854775808`或者`0~18446744073709551615`
+*   可以将数值序列字符串插入到BIGINT数据列中
+*   
+
+**`DECIMAL[(M[,D])] [UNSIGNED] [ZEROFILL]`**  
+精确小数，`M`表示可存储的数字的位数，`D`表示小数点后面的位数；`M`的最大值是65，`D`的最大值是30，小数点不计入；如果未指定`D`则为0表示没有小数部分，如果未指定`M`则默认值是10，也可以使用DEC、FIXED、NUMERIC
+
+**`FLOAT[(M[,D])] [UNSIGNED] [ZEROFILL]`**  
+单精度浮点数，占4个字节，可以设置值的范围是`-3.402823466E+38~-1.175494351E-38` `0`或者`1.175494351E-38~3.402823466E+38`，实际的范围依赖你的硬件和操作系统；`M`和`D`分别表示可存储的数字的位数和小数点后面的位数
+
+**`DOUBLE[(M[,D])] [UNSIGNED] [ZEROFILL]`**  
+双精度浮点数，占8个字节，可以设置值的范围是`-1.7976931348623157E+308~-2.2250738585072014E-308` `0`或者` 2.2250738585072014E-308~1.7976931348623157E+308`，，实际的范围依赖你的硬件和操作系统；`M`和`D`分别表示可存储的数字的位数和小数点后面的位数
+
+> 指定`ZEROFILE`修饰符，则隐含`UNSIGNED`修饰符
+
+> `SERIAL`修饰符是`BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE`修饰符的别名
+
+> `SERIAL DEFAULT VALUE`修饰符是`NOT NULL AUTO_INCREMENT UNIQUE`修饰符的别名
+
+##### 日期和时间类型
+
+`TIME` `DATETIME` `TIMESTAMP`类型可以指定一个表示微秒精度的修饰符`(fsp)`，`fsp`的取值范围是0-6，0和空都表示没有微秒部分
+
+`TIMESTAMP` `DATETIME`可以设置自动初始化和更新属性
+
+`SUM()` `AVG()`聚合函数不能直接使用日期时间类型的列，但是我们可以使用一种变通的方法：先将日期时间值转换为数值单位，进行聚合操作，然后再转换回来，比如
+
+    SELECT SEC_TO_TIME(SUM(TIME_TO_SEC(time_col))) FROM tbl_name;
+    SELECT FROM_DAYS(SUM(TO_DAYS(date_col))) FROM tbl_name;
+
+**`DATE`**  
+日期，支持的值的范围是`1000-01-01`到`9999-12-31`。MySQL显示日期类型值为`YYYY-MM-DD`的格式，但是可以使用很多种日期字面值来给他赋值
+
+**`DATETIME[(fsp)]`**  
+日期和时间组合值，支持的值的范围是`1000-01-01 00:00:00.000000`到`9999-12-31 23:59:59:999999`。MySQL显示日期时间类型值为`YYYY-MM-DD HH:MM:SS[.franction]`的格式，但是可以使用很多种日期时间字面值来给他赋值
+
+设置`DEFAULT`和`ON TIME`列修饰符可以让DATETIME类型列值自动初始化和更新为当前的时间
+
+**`TIMESTAMP[(fsp)]`**  
+时间戳，支持的值范围是UTC时间`1970-01-01 00:00:01.000000`到`2038-01-19 03:14:07.999999`，TIMESTAMP被存储为自epoch(1970-01-01 00:00:00 UTC)以来的秒数；MySQL中的时间戳不能表示`1970-01-01 00:00:01`是因为它会被存储为0，而0要用来表示`0000-00-00 00:00:00`这个TIMESTAMP值
+
+如果未设置`explicit_defaults_for_timestamp`系统变量（默认OFF），表中的第一个TIMESTAMP列自动有设置为初始化时间或者最近一次更新时间的属性，也可以使用`DEFAULT CURRENT_TIMESTAMP`和`ON TIME CURRENT_TIMESTAMP`列修饰符显式设置
+
+如果一个TIMESTAMP列有设置为初始化时间或者最近一次更新时间的属性，并且在插入值时未指定值或者指定NULL值（这一列有NULL修饰符例外），则这列被更新为当前时间
+
+**`TIME[(fsp)]`**  
+时间，范围是`-838:59:59.000000`到`838:59:59.000000`，MySQL显示时间类型值为`HH:MM:SS[.franction]`的格式，但是可以使用很多种时间字面值来给他赋值
+
+**`YEAR[(4)]`**  
+4位数字的年份值，MySQL显示年份类型值为`YYYY`的格式，但是可以使用很多种年份字面值来给他赋值。值可以显示为1901到2155 和 0000
+
+##### 字符串类型
+
+`CHAR` `VARCHAR` `TEXT`类型后面的`M`的单位是character
+
+`CHAR` `VARCHAR` `TEXT` `ENUM` `SET`类型后面可以指定字符集和排序规则，如果未指定字符集则使用系统默认字符集
+
+如果指定字符集为`binary`则导致字符类型转变为相应的二进制数据类型：`CHAR`转变为`BINARY` `VARCHAR`转变为`VARBINARY` `TEXT`转变为`BLOB`；而`ENUM` `SET`不转换
+
+不带`M`长度修饰符的列类型，表示MySQL一定会分配可以容纳本列允许最大字符/字节数的存储空间，如果受制于行最大字节数的限制，则会报错
+
+**`CHAR[(M)] [CHARACTER SET charset_name] [COLLATE collation_name]`**  
+定长字符串，`M`可取值的范围是0-255默认是1，如果插入的值小于给定的长度则在右侧补空格，如果未启用` PAD_CHAR_TO_FULL_LENGTH`模式，则取出数据时会去掉末尾的空格
+
+允许定义`CHAR(0)`这样的列，如果再使用NULL修饰符则这一列只能有两个值`NULL` `''`
+
+**`VARCHAR(M) [CHARACTER SET charset_name] [COLLATE collation_name]`**  
+变长字符串，`M`指定了列可存储最大的字符数，范围是0-65535。实际的最大值受制于行最大字节数--65535bytes，而且是行中所有列的和，并且和使用的字符集有关。所以如果使用utf8字符集则最大可以指定的`M`值为21844
+
+MySQL会在`VARCHAR`列的数据前加上一个或者两个字节来表示列长度，如果数据长度小于255 bytes则使用一个字节，否则使用两个字节
+
+**`BINARY(M)`**  
+类似于`CHAR`类型，但是这里存储的是二进制字节串
+
+**`VARBINARY(M)`**  
+类似于`VARCHAR`类型，但是这里存储的是二进制字节串
+
+**`TINYTEXT [CHARACTER SET charset_name] [COLLATE collation_name]`**
+最大长度为255字符的文本列。有效最大长度会因为使用多字节字符集类型而减少。使用1个字节的前缀表示内容长度的字节数
+
+**`TEXT(M) [CHARACTER SET charset_name] [COLLATE collation_name]`**  
+最大长度为65535字符的文本列。有效最大长度会因为使用多字节字符集类型而减少。使用2个字节的前缀表示内容长度的字节数；`M`表示列允许的最大字符数
+
+**`MEDIUMTEXT [CHARACTER SET charset_name] [COLLATE collation_name]`**  
+最大长度为16,777,215字符的文本列。有效最大长度会因为使用多字节字符集类型而减少。使用3个字节的前缀表示内容长度的字节数
+
+**`LONGTEXT [CHARACTER SET charset_name] [COLLATE collation_name]`**  
+最大长度为4,294,967,295字符的文本列。有效最大长度会因为使用多字节字符集类型而减少，同时还受制于配置的客户端/服务器最大包缓冲池大小和系统内存大小。使用4个字节的前缀表示内容长度的字节数
+
+**`TINYBLOG`**  
+类似于`TINYTEXT`，但这里存储的是二进制数据
+
+**`BLOG(M)`**  
+类似于`BLOG(M)`，但这里存储的是二进制数据
+
+**`MEDIUMBLOG`**  
+类似于`MEDIUMTEXT`，但这里存储的是二进制数据
+
+**`LONGBLOG(M)`**  
+类似于`LONGTEXT`，但这里存储的是二进制数据
+
+**`ENUM('value1','value2',...) [CHARACTER SET charset_name] [COLLATE collation_name]`**  
+枚举类型，一个字符串对象，并且只能是后面`value`指定的值其中的一个或者是`NULL`；ENUM类型在内部使用整型表示
+
+**`SET('value1','value2',...) [CHARACTER SET charset_name] [COLLATE collation_name]`**  
+集合类型，可以是一个或者多个后面`value`列表中指定的值；SET类型在内部使用整型表示
