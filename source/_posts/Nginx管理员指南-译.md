@@ -842,5 +842,704 @@ server {
 *   From version 0.8.19 the default SSL ciphers are ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM
 *   From version 0.7.64, 0.8.18 and earlier the default SSL ciphers are ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP
 
+##### Nginx作为一个SSL代理前端服务器（TCP转发）
+
+本节设置需要Nginx plus R6以上版本
+
+当Nginx作为前端代理服务器时，我们可以在Nginx上启用SSL来接收用户的HTTPS连接请求。Nginx会为后端应用服务器解密用户请求数据，并且加密后端返回的响应数据；而Nginx和后端服务器则可以使用非SSL连接
+
+配置示例：
+```bash
+stream {
+    upstream stream_backend {
+         server backend1.example.com:12345;
+         server backend2.example.com:12345;
+         server backend3.example.com:12345;
+    }
+ 
+    server {
+        listen                12345 ssl;
+        proxy_pass            stream_backend;
+ 
+        ssl_certificate       /etc/ssl/certs/server.crt;
+        ssl_certificate_key   /etc/ssl/certs/server.key;
+        ssl_protocols         SSLv3 TLSv1 TLSv1.1 TLSv1.2;
+        ssl_ciphers           HIGH:!aNULL:!MD5;
+        ssl_session_cache     shared:SSL:20m;
+        ssl_session_timeout   4h;
+        ssl_handshake_timeout 30s;
+    …
+     }
+}
+```
+
+`ssl_handshake_timeout`指定了ssl握手阶段交换的数据的缓存时间，默认是60s这里改为30s
+
+还可以启用`ssl_session_tickets`功能将session会话缓存到客户端
+
+#### HTTP负载均衡
+
+在多种部署场景中nginx都可以作为一种非常高效的HTTP负载均衡应用
+
+##### 将流量分发到一组服务器
+
+需要先在`http`配置块中使用`upstream`配置项定义一个服务器组，然后可以在`location`中使用这个主机组
+
+`upstream`配置项后面跟主机组名，然后是一对大括号，在大括号中使用`server`配置项来定义主机的地址（可以是ip或者域名），每个配置项后面还可以跟一个或者多个参数：
+
+    http {
+        upstream backend {
+            server backend1.example.com weight=5;
+            server backend2.example.com;
+            server 192.0.0.1 backup;
+        }
+    }
+
+要将请求分发到主机组，需要在  `proxy_pass`配置项（依赖于使用的协议，可以是`fastcgi_pass`,`memcached_pass`,`uwsgi_pass`,`scgi_pass`）：
+    
+    server {
+        location / {
+            proxy_pass http://backend;
+        }
+    }
+    
+##### 选择一种负载均衡方法
+
+Nginx支持如下四种负载均衡调度方法：
+
+1.  **`round-robin方法`**：根据权重将请求均衡的分发到组中所有服务器。这是默认方法，不需要任何配置项就启用这种方法
+2.  **`least_conn方法`**：根据权重将请求分配给当前活动连接数量最少的服务器。需要在`upstream`中使用 `least_conn`; 配置项
+3.  **`ip_hash方法`**：根据客户端ip地址决定请求分发服务器。一般使用ipv4地址的前三个8位值或者ipv6的整个地址值来计算hash值。这种方法保证从一个ip地址来的请求一定会转发到后端的一台服务器，除非不可用。需要在`upstream`中使用`ip_hash`; 配置项
+4.  **`generic_hash方法`**：根据用户自定义的key来决定请求如何转发，key可以是文本或者变量或者它们的组合。比如key可以是ip地址和端口或者URI：
+
+```bash
+upstream backend {
+    hash $request_uri consistent;
+
+    server backend1.example.com;
+    server backend2.example.com;
+}
+```
+
+可选的`consistent`参数启用ketama一致hash负载均衡。请求会被按照用户自定义的hashed key均匀的分发到`upstrem`中的服务器。如果upstream中增加或者移除一台服务器，则只有很少一部分keys需要重新映射
+
+##### 服务器权重
+
+默认情况下nginx会使用`round-robin`方法并且根据权重将请求转发到组中的服务器。server配置参数中的`weight`参数指定了每个服务器的权重，默认是`1`：
+
+    upstream backend {
+        server backend1.example.com weight=5;
+        server backend2.example.com;
+        server 192.0.0.1 backup;
+    }
+    
+上面的例子中backend1的权重是5，而backend2的权重是1，所以如果有6个请求第一个服务器会分配到5个儿第二个服务器分配到一个；另外还有一个backup服务器在上面两个服务器又任何一个不可用时nginx会将请求也转发到这台服务器
+
+##### 服务器慢启动
+
+满启动可以避免将请求大量的转发到一个刚刚恢复的服务器，有可能导致服务器再次宕机。可以在`server`配置项中添加`slow_start`配置参数来启用慢启动服务：
+
+    upstream backend {
+        server backend1.example.com slow_start=30s;
+        server backend2.example.com;
+        server 192.0.0.1 backup;
+    }
+    
+时间指定了服务器会在多久时间内恢复权重
+如果主机组中只有一台服务器，则`max_fails`，`fail_timeout`和`slow_start`参数都会被忽略
+
+##### 启用Session保持
+
+Session保持意味着nginx可以识别用户session并且将同一个session的请求转发到服务器组中的同一台服务器。nginx支持3种session保持的方法，在upstream配置块中使用`sticky`配置项指定
+
+**`Sticky cookie方法`**：使用这种方法，nginx会在第一个响应信息中加入session cookie，并且标识出这个响应来自于服务器组中的哪一台。当这个客户端再次发出请求时会在请求头中带上这个cookie值，nginx会将这个请求发送至上一次处理这个请求的服务器：
+
+    upstream backend {
+        server backend1.example.com;
+        server backend2.example.com;
+    
+        sticky cookie srv_id expires=1h domain=.example.com path=/;
+    }
+    
+本例中的srv_id参数值指定了要设置和检查的cookie名，可选的expires参数指定了浏览器应该保存这个cookie的时间，可选的domain参数指定了cookie的域，可选的`path`参数指定了cookie设置的路径；这是最简单的一种session保持方法
+
+**`Sticky route方法`**：使用这种方法，nginx会给发来请求的客户端分配一个`route`。这个route会和客户端的cookie或者URI关联，下一请求到来时会根据这个关联的信息获取到route，然后将请求发送给对应的服务器：
+
+    upstream backend {
+        server backend1.example.com route=a;
+        server backend2.example.com route=b;
+    
+        sticky route $route_cookie $route_uri;
+    }
+
+**`Cookie learn方法`**：使用这种方法，nginx会检查请求和响应中的`session`标识。然后nginx会记住这个标识的请求和响应来自于哪个服务器。通常这种标识也是通过`HTTP cookie`的方法传递的：
+
+    upstream backend {
+       server backend1.example.com;
+       server backend2.example.com;
+    
+       sticky learn 
+           create=$upstream_cookie_examplecookie
+           lookup=$cookie_examplecookie
+           zone=client_sessions:1m
+           timeout=1h;
+    }
+    
+上面例子中，nginx会通过在响应的信息中设置一个`EXAMPLECOOKIE` cookie的方法来创建一个session
+
+必选参数`create`指定了创建session时依赖的变量。上例中是根据upstream服务器发过来的`EXAMPLECOOKIE` cookie创建的session
+
+必选参数`lookup`指定了如何查找是否存在这个session。上例中是根据客户端发来的`EXAMPLECOOKIE` cookie来查找
+
+必选参数`zone`指定了用来保存sticky session信息的共享内存区域。上例中这个区域名是`client_session`并且大小限制为1M
+
+这是一种比较复杂的session保持方法，不需要给客户端增加新的cookie，所有的数据都保存在nginx
+
+##### 限制连接数量
+
+使用nginx，我们可以在server配置项后面使用`max_conns`参数来限制允许的连接数量
+
+如果已经到达最大的连接数，则nginx会将其他的连接请求放入一个队列，这个队列可以在`upstream`配置块中使用`queue`配置项来指定：
+
+    upstream backend {
+        server backend1.example.com  max_conns=3;
+        server backend2.example.com;
+    
+        queue 100 timeout=70;
+    }
+
+`queue`配置项后面的参数表示队列中的请求的最大数量，`timeout`参数指定了如果在队列中70秒还未得到处理则给客户端返回一个错误
+
+Note that the max_conns limit will be ignored if there are idle keepalive connections opened in other worker processes. As a result, the total number of connections to the server may exceed the max_conns value in a configuration where the memory is shared with multiple worker processes.
+
+##### 被动的健康监控
+
+如果nginx认为一个服务器不可达，则不会将请求转发到这台服务器，直到它认为这台服务器已经恢复。下面的参数可以放在server配置项后面来设置服务器不可达的条件
+
+`max_fails`参数指定了要确定服务器确实处于不可达状态应该发送的请求的数量
+
+`fail_timeout`服务器会在这个时间间隔内发送上一个参数指定的次数的请求，所以从上次检测到服务器处于不可达后在这个时间内nginx认为服务器处于上次监测的状态，也就不会将请求转发至这台服务器  ？？？？
+
+默认情况下nginx会在10秒内进行一次检测，所以如果一次请求未得到相应，则在10秒内nginx认为这台服务器处于不可达状态：
+
+    upstream backend {                
+        server backend1.example.com;
+        server backend2.example.com max_fails=3 fail_timeout=30s;
+        server backend3.example.com max_fails=2;
+    }
+    
+##### 主动的健康监控
+
+Nginx可以周期性的发送特定的请求到后端服务器，然后检查响应是否符合条件来确定服务器状态
+
+要启用这种类型的检查，需要在使用这个`upstream`的`location`中使用`health_check`配置项。而且在服务器组中需要指定`zone`配置项：
+
+    http {
+        upstream backend {
+            zone backend 64k;
+    
+            server backend1.example.com;
+            server backend2.example.com;
+            server backend3.example.com;
+            server backend4.example.com;
+        }
+    
+        server {
+            location / {
+                proxy_pass http://backend;
+                health_check;
+            }
+        }
+    }
+    
+本例中启用了主动健康检查，每5秒nginx会发送一个`/`请求到后端的每一台服务器；如果有任何错误发生则nginx不会将请求再转发到这台服务器，知道下次检测成功
+
+`zone`配置项定义了一个在worker进程之间共享的内存区域，用来存储组的配置信息。这可以让worker进程使用相同设置的计数器来跟踪组中服务器的响应。zone配置项也使这个服务器组可动态配置（dynamically configurable）
+
+`health_check`配置项也可以使用下面的参数覆盖默认配置：
+
+    location / {
+        proxy_pass http://backend;
+        health_check interval=10 fails=3 passes=2;
+    }
+    
+上面配置中，两次检测的时间设置为10秒，连续三次检查失败则认为服务器不可达。连续两次检查成功则认为服务器恢复
+
+也可以指定检查的URI：
+
+    location / {
+        proxy_pass http://backend;
+        health_check uri=/some/path;
+    }
+    
+指定的URI会被附加到本server指定的主机名或者IP地址后面来组成完整的URL
+
+另外，也可以自己指定nginx认为服务器正常的条件。用`match`配置块来指定条件，然后在`health_check`配置项中来使用这个条件：
+
+    http {
+        ...
+    
+        match server_ok {
+            status 200-399;
+            body !~ "maintenance mode";
+        }
+    
+        server {
+            ...
+    
+            location / {
+                proxy_pass http://backend;
+                health_check match=server_ok;
+            }
+        }
+    }
+    
+上例中，如果返回码是`200-399`并且body中不含`maintenance mode`则认为服务器是正常的
+
+match配置块中可以指定检查状态码，响应头和响应体中的内容；使用这个配置项我们可以检查状态码是否在一定范围内，响应头中是否包含特定头域，响应体是否匹配正则表达式；在`match`块中可以指定一个返回码检查，一个响应体检查和多个相应头域检查。
+
+下面是另外一些例子：
+
+    match welcome {
+        status 200;
+        header Content-Type = text/html;
+        body ~ "Welcome to nginx!";
+    }
+    match not_redirect {
+        status ! 301-303 307;
+        header ! Refresh;
+    }
+    
+健康检查也可以在非http协议中使用，比如`FastCGI`，`uwsgi`，`SCGI`和`memcached`
+
+##### 在多个worker进程间共享数据
+
+如果upstream中不包含`zone`配置项，则每一个worker进程都有一份服务器组配置信息和一系列计数器的维护信息。计数器包括服务器组中每台服务器的连接数和请求一个服务器的失败尝试次数。所以服务器组配置信息是不可变的
+
+如果upstream中包含`zone`配置项，则服务器组的配置信息被放置在所有worker进程可访问的共享内存区域。这样服务器组就变的可配置，因为所有worker进程获取到相同的信息并且使用相同的计数器
+
+在服务器组的健康检查和运行时配置中zone是必须的。当前其他的配置也可以从中获益
+
+比如，如果服务器组的配置信息没有共享，每一个worker进程都会维护一份自己的关于服务器失败已尝试次数的计数器。这样的话这个请求的处理会依赖于这个worker进程。如果这个worker进程因为某种原因退出，由另外一个进程来处理这个请求，那之前维护的计数器信息都会丢失。这样nginx可能要花费更多的资源来校正这些信息
+
+如果没有使用zone配置项的话，`least_conn`负载均衡方法可能不会正常工作
+
+**设置zone的大小** 
+因为不同的应用模式所以zone也没有精确的设置。每种特性，比如sticky cookie/route/learn负载均衡，健康检查或者re-resolving会影响zone的大小
+
+比如，256kb的zone用在sticky_route会话保持方法和单个健康检查可以容纳：
+*   128 servers (adding a single peer by specifying IP:port);
+*   88 servers (adding a single peer by specifying hostname:port, hostname resolves to single IP);
+*   12 servers (adding multiple peers by specifying hostname:port, hostname resolves to many IPs).
+
+##### 在线配置
+
+使用特定的HTTP接口，我们可以在线配置服务器组的信息。可以使用配置命令查看组中的所有服务器或者特定的服务器，更改一个特定服务器的参数，或者添加和移除一个服务器
+
+**`设置允许在线配置`**  
+1.  在upstream中包含zone配置项。zone配置项启用一个共享内存区域，并且设置zone名和大小。服务器组的配置信息保存在这里，这样所有的worker进程都可以获取到同样的信息：
+```bash
+http {
+    ...
+    upstream appservers {
+        zone appservers 64k;
+        server appserv1.example.com      weight=5;
+        server appserv2.example.com:8080 fail_timeout=5s;
+        server reserve1.example.com:8080 backup;
+        server reserve2.example.com:8080 backup;
+    }
+}
+```
+
+2.  在单个的location中设置upstream_conf配置项：
+```bash
+server {
+    location /upstream_conf {
+        upstream_conf;
+        allow 127.0.0.1;
+        deny  all;
+    }
+}
+```
+
+> 强烈建议你增加访问限制
+
+**`一个完整的配置`**  
+    
+    http {
+        ...
+        # Configuration of the server group
+        upstream appservers {
+            zone appservers 64k;
+    
+            server appserv1.example.com      weight=5;
+            server appserv2.example.com:8080 fail_timeout=5s;
+    
+            server reserve1.example.com:8080 backup;
+            server reserve2.example.com:8080 backup;
+        }
+    
+        server {
+            # Location that proxies requests to the group
+            location / {
+                proxy_pass http://appservers;
+                health_check;
+            }
+    
+            # Location for configuration requests
+            location /upstream_conf {
+                upstream_conf;
+                allow 127.0.0.1;
+                deny  all;
+            }
+        }
+    }
+    
+**`在线配置`**  
+
+配置命令是以http请求的方式发出的。URL需要能访问到`upstream_conf`配置项所在的location。请求还需要加上一些参数来指定要配置的服务器组
+
+比如，要查看一个服务器组中的所有backup server：
+http://127.0.0.1/upstream_conf?upstream=appservers&backup=
+
+要添加一个新的服务器到这个组中：
+http://127.0.0.1/upstream_conf?add=&upstream=appservers&server=appserv3.example.com:8080&weight=2&max_fails=3
+
+要移除一个服务器需要指定这个服务器的id：
+http://127.0.0.1/upstream_conf?remove=&upstream=appservers&id=2
+
+要更改特定的服务的配置信息：
+http://127.0.0.1/upstream_conf?upstream=appservers&id=2&down=
+
+其他的配置方法可以参考nginx.org
+
+> 注意：从nginx1.9开始nginx支持TCP负载均衡，详细信息可以参考nginx.org
+
+
+#### 使用代理协议（PROXY protocol）
+
+PROXY protocol可以让nginx接收到通过代理服务器或者负载均衡设备传过来的客户端连接信息
+
+经过PROXY protocol传过来的信息一般是客户端的IP、代理服务器的IP以及端口。后端服务器在某些情况下需要这些信息。使用`PROXY protocol nginx`可以从`SSL HTTP/2 SPDY Websocket`和`TCP`协议中获取最初的客户端信息
+
+##### 启用代理协议
+
+要让nginx在`SSL HTTP/2 SPDY WebSocket`协议中接收`PROXY protocol`需要进行下面的配置
+
+1.  配置nginx接受`PROXY protocol`头，需要在`listen`配置项中添加`proxy_protocol`参数：
+```bash
+server {
+    listen 80   proxy_protocol;
+    listen 443  ssl proxy_protocol;
+    ...
+}
+```
+
+2.  在`set_real_ip_from`配置项中指定代理或者负载均衡服务器所在的网段：
+```bash
+server {
+    ...
+    set_real_ip_from 192.168.1.0/24;
+    ...
+}
+```
+
+3.  在`real_ip_header`配置项中增加`proxy_protocol`参数来保存客户端ip和端口：
+```bash
+server {
+    ...
+    real_ip_header proxy_protocol;
+}
+```
+
+4.  使用`proxy_set_header`配置项将客户的IP地址从nginx发送至后端服务器：
+```bash
+proxy_set_header X-Real-IP       $proxy_protocol_addr;
+proxy_set_header X-Forwarded-For $proxy_protocol_addr;
+```
+
+5.  在`log_format`配置项中增加`$proxy_protocol_addr`变量：
+```bash
+http {
+    ...
+    log_format combined '$proxy_protocol_addr - $remote_user [$time_local] '
+                        '"$request" $status $body_bytes_sent '
+                        '"$http_referer" "$http_user_agent"';
+}
+```
+
+
+#### 限制访问被代理的HTTP资源
+
+##### 限制访问（Restricting）
+
+Nginx可以根据客户的IP地址来决定是否允许访问特定的资源，也可以使用基本的HTTP验证
+
+使用`allow`和`deny`配置项可以限制或者允许特定的IP或者一个网段的IP的访问
+
+    location / {
+        deny  192.168.1.2;
+        allow 192.168.1.1/24;
+        allow 127.0.0.1;
+        deny  all;
+    }
+    
+要启用验证可以使用`auth_basic`配置项，这样用户需要使用合法的用户名和密码来访问特定资源。合法的用户名和密码所在的文件使用`auth_basic_user_file`配置项指定：
+
+    server {
+        ...
+        auth_basic "closed website";
+        auth_basic_user_file conf/htpasswd;
+    }
+    
+可以在特定的`location`中添加`auth_basic`来设置这个`location`的访问不需要验证：
+
+    server {
+        ...
+        auth_basic "closed website";
+        auth_basic_user_file conf/htpasswd;
+    
+        location /public/ {
+            auth_basic off;
+        }
+    }
+
+要混合IP地址限制和认证需要使用`satisfy`配置项。默认情况下设置为`all`，客户端需要满足所有的条件才可以访问；如果设置为`any`则表示至少需要满足一个条件才允许访问：
+
+    location / {
+        satisfy any;
+    
+        allow 192.168.1.0/24;
+        deny  all;
+    
+        auth_basic           "closed site";
+        auth_basic_user_file conf/htpasswd;
+    }
+    
+##### 限制访问（Limiting）
+
+Nginx可以限制：
+1.  每一个指定key value的连接数（比如每个IP地址）
+2.  每一个指定key value的请求速率（特定时间内可以处理的请求数量）
+3.  每一个连接的下载速度
+
+> 注意：因为可能有的多个客户端使用同一个IP地址连接所以限制IP的方法并不很明智
+
+**`限制连接数`**  
+
+要限制连接数，首先需要使用`limit_conn_zone`配置项定义一个`key`并设置共享内存区域参数（所有的worker进程使用这个共享内存区域获取相同的计数器）。第一个参数是一个表达式被计算后作为key。第二个参数指定了`zone`名字和大小：
+
+    limit_conn_zone $binary_remote_address zone=addr:10m;
+    
+然后在一个`location`中使用`limit_conn`配置项指定这个限制，也可以在`server`或者整个`http`配置块中使用。指定共享内存区域名作为第一个参数，每一个key允许的连接数作为第二参数：
+
+    location /download/ {
+        limit_conn addr 1;
+    }
+    
+上面的例子中以每一个IP地址作为限制，因为使用`$binary_reomte_address`作为第一个参数。对于一个服务器允许的连接数限制可以使用`$server_name`变量：
+
+    http {
+        limit_conn_zone $server_name zone=servers:10m;
+    
+        server {
+            limit_conn servers 1000;
+        }
+    }
+    
+**`限制请求速率`**  
+
+要限制请求的速率，首先使用`limit_req_zone`配置参数设置key和共享内存区域来保存计数器信息：
+
+    limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+    
+key的指定和`limit_conn_zone`的方法一样。`rate`参数可以指定单位时间的请求数，比如每秒`（r/s）`或者每分钟`（r/m）`。当没秒请求数少于一个时候需要使用每分钟的单位
+
+定义了共享内存区域后，就可以使用`limit_req`配置参数来限制一个`location`或者`server`或者全局的请求速率：
+
+    location /search/ {
+        limit_req zone=one burst=5;
+    }
+    
+上面的配置中，nginx每秒只处理一个请求。如果请求数量大于限制值，则这些请求会被放置在一个队列中并且被延后处理。突发请求数超过burst设置的话会返回`503`错误
+
+如果不想超过设置的请求被延后可以使用`nodelay`参数：
+
+    limit_req zone=one burst=5 nodelay;
+    
+**`限制带宽`**  
+
+要限制每一个连接可使用的带宽，可以使用`limit_rate`配置参数：
+
+    location /download/ {
+        limit_rate 50k;
+    }
+    
+上面的设置会限制单个的连接的最大带宽是50k。但是用户可以打开多个连接来突破这个限制。所以要限制每个用户的下载速度的话，每个用户的连接数也需要限制，比如（需要在前面定义共享区域addr）：
+
+    location /download/ {
+        limit_conn addr 1;
+        limit_rate 50k;
+    }
+    
+使用`limit_rate_after`配置参数可以让用户在下载完多少字节内容有才应用限制（这样可以让用户快速下载完一个文件头）：
+
+    limit_rate_after 500k;
+    limit_rate 20k;
+    
+下面是一个混合配置示例：
+
+    http {
+        limit_conn_zone $binary_remote_address zone=addr:10m
+    
+        server {
+            root /www/data;
+            limit_conn addr 5;
+    
+            location / {
+            }
+    
+            location /download/ {
+                limit_conn addr 1;
+                limit_rate 1m;
+                limit_rate 50k;
+            }
+        }
+    }
+    
+
+#### 日志和监控
+
+##### 设置错误日志
+
+Nginx会将运行过程中产生的不同级别的问题信息写入错误日志。`error_log`配置项可以控制将日志信息写入文件，标准错误输出或者系统日志；并且可以指定什么级别的日志信息才会被记录。默认情况下，错误日志放在`logs/error.log`（相对于nginx安装根目录），并且会记录指定的日志等级以上的信息
+
+下面的配置将要记录的日志的最小等级由`error`改为`warn`：
+
+    error_log logs/error.log warn;
+    
+本例中所有的`warn`、`error`、`crit`、`alert`和`emerg`等级的日志会被记录
+
+默认的错误日志的设置对全局起作用。要改变这个默认设置`error_log`配置项需要放置在`main`配置块中。`main`配置块中的设置也总是会被其他配置块继承。`error_log`配置项可以放置在`http`、`stream`、`server`和`location`配置块中来取消从高层次继承过来的设置。错误日志只会被记录在最内层指定的文件中；但是如果在同一个级别的配置块中指定多个`error_log`配置项则日志会被写入多个指定的目标中
+
+> 注意：在同一层级配置块中使用多个`error_log`的配置在`1.5.2`之后的nginx才支持
+
+##### 设置访问日志
+
+Nginx会在请求被处理之后立刻将客户端的请求信息记录至访问日志中。默认情况下访问日志放置在`logs/access.log`，并且会按配置项`combined`指定的格式来写入日志信息。要改变默认设置，使用`log_format`配置项指定要记录日志的格式，使用`access_log`配置项指定日志的位置和要写入的格式（`log_format`定义的），日志格式的定义使用变量
+
+下面的配置中在默认的日志格式中增加了响应信息的压缩率，将这个日志格式命名为`compression`；然后在一个server中使用这个日志格式：
+
+    http {
+        log_format compression '$remote_addr - $remote_user [$time_local] '
+                               '"$request" $status $body_bytes_sent '
+                               '"$http_referer" "$http_user_agent" "$gzip_ratio"';
+    
+        server {
+            gzip on;
+            access_log /spool/logs/nginx-access.log compression;
+            ...
+        }
+    }
+    
+下面例子的日志格式跟踪nginx和后端服务器的不同的时间值，可以在后端响应比较慢的情况下来帮助分析问题。下面是可使用的时间值：
+*   the time spent on establishing a connection with an upstream server. This can be done with the $upstream_connect_time variable
+*   the time between establishing a connection and receiving the first byte of the response header from the upstream server. This can be done with the $upstream_header_time variable,
+*   the time between establishing a connection and receiving the last byte of the response body from the upstream server This can be done with the $upstream_response_time variable
+*   full time spent on processing a request with the $request_time variable
+
+> 所有的值都是秒和毫秒的粒度
+
+    http {
+        log_format upstream_time '$remote_addr - $remote_user [$time_local] '
+                                 '"$request" $status $body_bytes_sent '
+                                 '"$http_referer" "$http_user_agent"'
+                                 'rt=$request_time uct="$upstream_connect_time" uht="$upstream_header_time" urt="$upstream_response_time"';
+    
+        server {
+            access_log /spool/logs/nginx-access.log upstream_time;
+            ...
+        }
+    }
+    
+下面是理解这些值的规则：
+*   如果一个请求是由几个服务器处理的，则这个变量是用逗号分开的几个值
+*   如果有一个内部重定向将请求从一个后端服务器组转发到另外一个组，则变量的值用分号分隔
+*   如果一个请求不能到达后端服务器或者没有收到一个完整的响应头，则变量包含“0”
+*   如果连接后端服务器时发生内部错误或者返回的信息是从缓存中获取的，则变量包含`-`
+
+可以为日志信息启用缓存或者缓存那些名字中包含变量的频繁使用的文件描述符（打开日志文件的）来优化日志记录。要启用缓存需要在`access_log`配置项后面使用`buffer`参数设置缓存的大小。这样缓存中的日志信息会在缓存不足以放置接下来的一条日志记录时被写入日志文件（也可以使用参数进行控制cases）。要启用日志文件描述符缓存，需要使用`open_log_file_cache`配置项
+
+和`error_log`一样，`access_log`配置也会由小的配置块中的设置继承或者覆盖大的配置块的设置；如果在同一配置层级指定多个`access_log`配置项则日志被写入多个目标
+
+**`使用条件日志`**  
+条件日志可以从所有要记录日志信息中排除不重要的日志。Nginx中在`access_log`配置项中使用`if`参数可以启用条件日志
+
+比如，下面的配置可以排除那些返回`2xx`或者`3xx`状态码的请求的记录：
+
+    map $status $loggable {
+        ~^[23]  0;
+        default 1;
+    }
+    
+    access_log /path/to/access.log combined if=$loggable;
+    
+##### 记录到syslog
+
+Syslog是一个标准的系统信息记录系统，可以将不同的设备的日志信息记录到单个的日志服务器。可以使用syslog配置参数加上前置的`error.log`或者`access.log`来启用syslog日志记录
+
+日志信息被发送至`server=`指定的值中，这个值可以是一个主机名、一个IP地址、或者一个Unix-domain套接字中。主机名和IP地址可以指定一个端口，默认端口是514；Unix-domain套接字路径需要加`unix:`前缀：
+
+    error_log server=unix:/var/log/nginx.sock debug;
+    access_log syslog:server=[2001:db8::1]:1234,facility=local7,tag=nginx,severity=info;
+    
+上面的例子中`debug`以上级别的错误日志信息会被写入一个unix套接字中；而访问日志信息被发送至由ipv6地址和端口指定的服务器
+
+`facility=`参数指定了要记录日志信息的应用类型，默认是local7。其他的值可以是：`auth, authpriv, daemon, cron, ftp, lpr, kern, mail, news, syslog, user, uucp, local0 … local7`
+
+`tag=`参数会增加一个自定义的`tag`到日志信息中，本例中tag为nginx
+
+`severity=`参数指定了访问日志的系统日志严重性级别。可能的值按严重性增加依次是：`debug, info, notice, warn, error (default), crit, alert, and emerg`
+
+##### 实时活跃性监控
+
+Nginx提供了一个可以监控实时系统活跃性的接口，通过这个接口我们可以查看HTTP和TCP后端服务器的负载和性能信息；还可以查看到下面这些信息：
+
+*   Nginx版本、启动时间和标识
+*   累计的和当前的连接数量和请求数量
+*   每一个`status_zone`的请求和响应的计数
+*   每一个`dynamically configured group`中的每一个服务器的请求和响应的计数，以及健康状况和启动时间统计信息
+*   每一个服务器的统计信息和当前状态和服务器数量（不可用状态的数量）
+*   每一个命名的`cache zone`的统计信息
+
+> 完整的信息列表可以查看here.
+
+统计信息可以从Nginx Plus包中的status.html页面查看
+
+使用简单的RESTful JSON接口，可以很容易将这些信息连接到一个实时面板和第三方的监控工具中
+
+**`启用实时活跃性监控`**  
+要启用实时监控和JSON接口，需要指定一个`location`，这个`location`的URI为`/status`并且在配置块中包含`status`配置项。要使用`status.html`页面，还需要指定另外一个`location`让nginx可以定位到这个静态页面：
+
+    server {
+        listen 127.0.0.1;
+        root /usr/share/nginx/html;
+    
+        location /status {
+            status;
+        }
+    
+        location = /status.html {
+        }
+    }
+    
+**`使用RESTful JSON接口`**  
+如果你访问`/status`，nginx会返回一个包含实时数据的JSON文档
+
+JSON文档中的任何元素表示的状态信息都可以使用不同的URL请求来获取：
+
+    http://127.0.0.1/status
+    http://127.0.0.1/status/nginx_versionhttp://127.0.0.1/status/caches/cache_backendhttp://127.0.0.1/status/upstreamshttp://127.0.0.1/status/upstreams/backendhttp://127.0.0.1/status/upstreams/backend/1http://127.0.0.1/status/upstreams/backend/1/weight
+
 原文地址：
 [**`Nginx admin guide and tutorial`**](https://www.nginx.com/resources/admin-guide/?_ga=1.220252177.848255972.1471312696)
