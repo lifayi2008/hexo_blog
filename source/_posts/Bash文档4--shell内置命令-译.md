@@ -363,3 +363,223 @@ ulimit用来控制shell启动的进程的可用资源数量，系统需要提供
 
 **`unalias [-a] [name … ]`**  
 移除alias列表的别名。如果使用-a参数则表示所有的别名都被移除。详细的alias信息可以参考后面的章节
+
+#### 更改shell行为的命令
+
+##### set命令
+
+使用set命令可以更改shell选项和设置位置参数，也可以显示当前的shell变量
+```bash
+set [--abefhkmnptuvxBCEHPT] [-o option-name] [argument …]
+set [+abefhkmnptuvxBCEHPT] [+o option-name] [argument …]
+```
+
+如果未指定选项和参数，`set`命令显示当前shell所有函数的名字和变量的名称和值，按照服务器地区设置进行排序；并且以可以再作为其他设置变量的命令的输入的格式进行输出。只读变量不能再被设置。在`POSIX`模式下`set`只列出变量名
+
+如果指定选项则表示设置获取取消设置shell属性。下面对选项进行详细解释：
+
+**`-a`**    将正在创建或者更改的变量或者函数导出到后面命令的执行环境中
+
+**`-b`**    让后台命令的返回值立即打印到标准输出；默认会等到下一次输出命令提示符的时候才会输出
+
+**`-e`**    如果一个管道命令（Pipelines，不同于狭义的管道）返回一个非0值则立即退出shell。如果返回错误的命令是在`while`或者`until`后面的命令列表的一部分，或者是`if`语句测试的一部分，或者是`||` `&&`命令列表的一部分并且不是最后一个命令，或者管道（pipeline |）命令的一部分并且不是最后一个，或者命令的返回状态使用`!`取反，则不会退出shell。If a compound command other than a subshell returns a non-zero status because a command failed while -e was being ignored, the shell does not exit. A trap on ERR, if set, is executed before the shell exits
+
+这个选项对当前shell及子shell都有效（即子shell中如果有命令返回非0值则退出子shell返回到当前shell）
+
+**`-f`**    禁用文件名扩展
+
+**`-h`**    执行外部命令时记录命令的路径（hash），默认启用
+
+**`-k`**    命令中的所有赋值语句都作为命令的环境，默认需要放置在命令名之前
+
+**`-m`**    启用作业控制（job control）。所有进程都在一个单独的进程组中。当后台命令完成时，shell会打印一行内容包含命令的返回值
+
+**`-n`**    读取命令但是不执行，这样可以用来检查一个脚本的语法是否正确；交互式shell忽略这个选项
+
+**`-p`**    启用特权模式。在这个模式中`$BASH_ENV`和`$ENV`文件不会被处理，shell函数也不会从环境中继承，环境中的`SHELLOPTS` `BASHOPTS` `CDPATH``GLOBIGNORE`变量被忽略。如果启动shell的有效用户id和真实用户id不同，并且为指定-p选项，则有效用户id被设置为真实用户id。如果使用`-p`选项启动shell则不会重置有效用户id。关闭这个选项则有效用户id和组id被设置为真实用户id和组id
+
+**`-t`**    读取和执行一条命令就退出
+
+**`-u`**    使用未设置的变量和参数（`*`和`@`除外）则返回错误。在交互式shell中向标准错误输出打印一条错误信息，非交互式shell中直接退出
+
+**`-v`**    Print shell input lines as they are read
+
+**`-x`**    打印简单命令、for命令、case命令、select命令、和算术for命令的参数和关联word列表扩展完毕之后执行之前的状态，可以进行命令扩展跟踪。打印的内容使用变量`PS4`的值作为开头
+
+**`-B`**    shell会进行大括号扩展，默认启用
+
+**`-C`**    阻止输出重定向操作符`>` `>&` `<>`覆盖已经存在的文件
+
+**`-E`**    如果设置则`ERR上`的trap会被shell函数，命令替换和子shell中的命令执行所继承
+
+**`-H`**    启用命令历史替换
+
+**`-P`**    如果设置，在执行cd命令切换当前目录到一个符号链接目录时，直接切换到符号连接指向的实际目录；默认情况下可以切换到符号连接目录（使用`pwd`命令打印可以看出来）
+
+**`-T`**    如果设置则`DEBUG`和`RETURN`上的trap会被shell函数，命令替换和子shell中的命令执行所继承
+
+**`--`**    如果这个选项后面未跟任何参数，则表示将位置参数取消设置。否则位置参数被设置为 arguments，即使位置参数使用 - 开始
+
+**`-`**    标记选项的结束，后面的所有word都被当作是位置参数。The -x and -v options are turned off. If there are no arguments, the positional parameters remain unchanged.
+
+使用**`+`**表示关闭这些选项。当前设置的选项可以使用`$-`查看
+
+剩余的`argument`被当作位置参数依次赋值给`$1 $2 .....$n`，特殊参数`$#`表示参数个数
+
+返回值总是0，除非给出了错误的选项
+
+**`-o option-name`**   option-name可以是：
+```bash
+allexport    等同于-a
+braceexpand    等同于-B
+errexit    等同于-e
+errtrace    等同于-E
+functrace    等同于-T
+hashall    等同于-h
+histexpand    等同于-H
+keyword    等同于-k
+monitor    等同于-m
+noclobber    等同于-C
+noexec    等同于-n
+noglob    等同于-f
+nolog    当前这个命令无效
+notify    等同于-b
+nounset    等同于-u
+onecmd    等同于-t
+physical    等同于-P
+privileged    等同于-p
+verbose    等同于-v
+xtrace    等同于-x
+pipefail    如果设置这个选项则管道命令的退出状态是最后一个非0的退出状态，如果所有命令都返回0则结果也是0。这个选项默认关闭
+posix    让Bash的行为符合POSIX标准。这样bash的行为就是标准行为的一个严格超集
+emacs    使用emac风格的编辑接口。这个选项也会影响read -e命令
+vi    使用vi的行编辑接口，同样影响read -e命令
+history    启用命令历史（commad history）；在交互式shell中默认启用
+ignoreeof    交互式shell在读取到EOF不会退出
+```
+
+##### shopt命令
+
+这个内置命令可以用来更改一些其他的shell行为
+```bash
+shopt [-pqsu] [-o] [optname …]
+```
+
+如果使用`-o`选项则`optname`必须是`set`命令支持的`option-name`。不加任何选项则在选项后面使用`on`或者`off`表示是否已经开启；`-p`选项则显示出所有可设置的选项（隐含选项是否已经设置），并且输出的格式是可以再次作为命令的输入。`-s`选项表示启用`optname`，`-u`表示禁用`optname`。`-q`表示检查一个选项是否被设置，如果是返回0否则返回1，如果指定多个`optname`则都已经设置时返回0，否则返回1
+
+如果只使用`-u`或者`-s`选项而不指定参数，则分别显示当前未设置或者设置的选项
+
+optname可以是如下：
+```bash
+autocd
+If set, a command name that is the name of a directory is executed as if it were the argument to the cd command. This option is only used by interactive shells.
+cdable_vars
+If this is set, an argument to the cd builtin command that is not a directory is assumed to be the name of a variable whose value is the directory to change to.
+cdspell
+If set, minor errors in the spelling of a directory component in a cd command will be corrected. The errors checked for are transposed characters, a missing character, and a character too many. If a correction is found, the corrected path is printed, and the command proceeds. This option is only used by interactive shells.
+checkhash
+If this is set, Bash checks that a command found in the hash table exists before trying to execute it. If a hashed command no longer exists, a normal path search is performed.
+checkjobs
+If set, Bash lists the status of any stopped and running jobs before exiting an interactive shell. If any jobs are running, this causes the exit to be deferred until a second exit is attempted without an intervening command (see Job Control). The shell always postpones exiting if any jobs are stopped.
+checkwinsize
+If set, Bash checks the window size after each command and, if necessary, updates the values of LINES and COLUMNS.
+cmdhist
+If set, Bash attempts to save all lines of a multiple-line command in the same history entry. This allows easy re-editing of multi-line commands.
+compat31
+If set, Bash changes its behavior to that of version 3.1 with respect to quoted arguments to the conditional command’s ‘=~’ operator and with respect to locale-specific string comparison when using the [[ conditional command’s ‘<’ and ‘>’ operators. Bash versions prior to bash-4.1 use ASCII collation and strcmp(3); bash-4.1 and later use the current locale’s collation sequence and strcoll(3).
+compat32
+If set, Bash changes its behavior to that of version 3.2 with respect to locale-specific string comparison when using the [[ conditional command’s ‘<’ and ‘>’ operators (see previous item).
+compat40
+If set, Bash changes its behavior to that of version 4.0 with respect to locale-specific string comparison when using the [[ conditional command’s ‘<’ and ‘>’ operators (see description of compat31) and the effect of interrupting a command list. Bash versions 4.0 and later interrupt the list as if the shell received the interrupt; previous versions continue with the next command in the list.
+compat41
+If set, Bash, when in POSIX mode, treats a single quote in a double-quoted parameter expansion as a special character. The single quotes must match (an even number) and the characters between the single quotes are considered quoted. This is the behavior of POSIX mode through version 4.1. The default Bash behavior remains as in previous versions.
+compat42
+If set, Bash does not process the replacement string in the pattern substitution word expansion using quote removal.
+complete_fullquote
+If set, Bash quotes all shell metacharacters in filenames and directory names when performing completion. If not set, Bash removes metacharacters such as the dollar sign from the set of characters that will be quoted in completed filenames when these metacharacters appear in shell variable references in words to be completed. This means that dollar signs in variable names that expand to directories will not be quoted; however, any dollar signs appearing in filenames will not be quoted, either. This is active only when bash is using backslashes to quote completed filenames. This variable is set by default, which is the default Bash behavior in versions through 4.2.
+direxpand
+If set, Bash replaces directory names with the results of word expansion when performing filename completion. This changes the contents of the readline editing buffer. If not set, Bash attempts to preserve what the user typed.
+dirspell
+If set, Bash attempts spelling correction on directory names during word completion if the directory name initially supplied does not exist.
+dotglob
+If set, Bash includes filenames beginning with a ‘.’ in the results of filename expansion.
+execfail
+If this is set, a non-interactive shell will not exit if it cannot execute the file specified as an argument to the exec builtin command. An interactive shell does not exit if exec fails.
+expand_aliases
+If set, aliases are expanded as described below under Aliases, Aliases. This option is enabled by default for interactive shells.
+extdebug
+If set, behavior intended for use by debuggers is enabled:
+The -F option to the declare builtin (see Bash Builtins) displays the source file name and line number corresponding to each function name supplied as an argument.
+If the command run by the DEBUG trap returns a non-zero value, the next command is skipped and not executed.
+If the command run by the DEBUG trap returns a value of 2, and the shell is executing in a subroutine (a shell function or a shell script executed by the . or source builtins), a call to return is simulated.
+BASH_ARGC and BASH_ARGV are updated as described in their descriptions (see Bash Variables).
+Function tracing is enabled: command substitution, shell functions, and subshells invoked with ( command ) inherit the DEBUG and RETURN traps.
+Error tracing is enabled: command substitution, shell functions, and subshells invoked with ( command ) inherit the ERR trap.
+extglob
+If set, the extended pattern matching features described above (see Pattern Matching) are enabled.
+extquote
+If set, $'string' and $"string" quoting is performed within ${parameter} expansions enclosed in double quotes. This option is enabled by default.
+failglob
+If set, patterns which fail to match filenames during filename expansion result in an expansion error.
+force_fignore
+If set, the suffixes specified by the FIGNORE shell variable cause words to be ignored when performing word completion even if the ignored words are the only possible completions. See Bash Variables, for a description of FIGNORE. This option is enabled by default.
+globasciiranges
+If set, range expressions used in pattern matching bracket expressions (see Pattern Matching) behave as if in the traditional C locale when performing comparisons. That is, the current locale’s collating sequence is not taken into account, so ‘b’ will not collate between ‘A’ and ‘B’, and upper-case and lower-case ASCII characters will collate together.
+globstar
+If set, the pattern ‘**’ used in a filename expansion context will match all files and zero or more directories and subdirectories. If the pattern is followed by a ‘/’, only directories and subdirectories match.
+gnu_errfmt
+If set, shell error messages are written in the standard GNU error message format.
+histappend
+If set, the history list is appended to the file named by the value of the HISTFILE variable when the shell exits, rather than overwriting the file.
+histreedit
+If set, and Readline is being used, a user is given the opportunity to re-edit a failed history substitution.
+histverify
+If set, and Readline is being used, the results of history substitution are not immediately passed to the shell parser. Instead, the resulting line is loaded into the Readline editing buffer, allowing further modification.
+hostcomplete
+If set, and Readline is being used, Bash will attempt to perform hostname completion when a word containing a ‘@’ is being completed (see Commands For Completion). This option is enabled by default.
+huponexit
+If set, Bash will send SIGHUP to all jobs when an interactive login shell exits (see Signals).
+interactive_comments
+Allow a word beginning with ‘#’ to cause that word and all remaining characters on that line to be ignored in an interactive shell. This option is enabled by default.
+lastpipe
+If set, and job control is not active, the shell runs the last command of a pipeline not executed in the background in the current shell environment.
+lithist
+If enabled, and the cmdhist option is enabled, multi-line commands are saved to the history with embedded newlines rather than using semicolon separators where possible.
+login_shell
+The shell sets this option if it is started as a login shell (see Invoking Bash). The value may not be changed.
+mailwarn
+If set, and a file that Bash is checking for mail has been accessed since the last time it was checked, the message "The mail in mailfile has been read" is displayed.
+no_empty_cmd_completion
+If set, and Readline is being used, Bash will not attempt to search the PATH for possible completions when completion is attempted on an empty line.
+nocaseglob
+If set, Bash matches filenames in a case-insensitive fashion when performing filename expansion.
+nocasematch
+If set, Bash matches patterns in a case-insensitive fashion when performing matching while executing case or [[ conditional commands.
+nullglob
+If set, Bash allows filename patterns which match no files to expand to a null string, rather than themselves.
+progcomp
+If set, the programmable completion facilities (see Programmable Completion) are enabled. This option is enabled by default.
+promptvars
+If set, prompt strings undergo parameter expansion, command substitution, arithmetic expansion, and quote removal after being expanded as described below (see Controlling the Prompt). This option is enabled by default.
+restricted_shell
+The shell sets this option if it is started in restricted mode (see The Restricted Shell). The value may not be changed. This is not reset when the startup files are executed, allowing the startup files to discover whether or not a shell is restricted.
+shift_verbose
+If this is set, the shift builtin prints an error message when the shift count exceeds the number of positional parameters.
+sourcepath
+If set, the source builtin uses the value of PATH to find the directory containing the file supplied as an argument. This option is enabled by default.
+xpg_echo
+If set, the echo builtin expands backslash-escape sequences by default. 
+```
+
+#### 特殊内置命令
+
+因为历史的原因，POSIX标准将一些内置命令归类为特殊内置命令。当Bash以`POSIX`模式运行时，特殊内置命令和其他的命令有以下三方面的不同：
+1.  在进行命令搜索时，特殊命令先于shell函数
+2.  如果一个特殊内置命令返回一个表示错误的状态码，则非交互式shell退出
+3.  命令前的变量赋值语句所创建的变量在命令结束之后仍然有效
+
+当Bash没有在`POSIX`模式运行时，这些内置命令的行为和其他内置命令一样
+
+POSIX特殊内置命令如下：
+
+`break`    `:`（冒号）    `.`（点）    `continue`  `eval`  `exec`    `exit`    `export`    `readonly`    `return`    `set`    `shift`    `trap`    `unset`

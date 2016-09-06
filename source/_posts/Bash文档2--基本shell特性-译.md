@@ -294,7 +294,7 @@ If the control variable in a for loop has the nameref attribute, the list of wor
 
 **$?**：展开为上一个退出的前台进程（组）的退出状态
 
-**$-**：在交互式shell中展开为一串包括"i"的字符串，在shell script中展开为不包括"i"的字符串
+**$-**：展开为启动shell时设置的选项标记字符所组成的字符串，标记可能是`set`命令设置的，或者系统设置的（比如`-i`选项）
 
 **$$**：展开为当前shell的PID。如果在一个()创建的子shell中，`$$`依然表示调用的shell的PID而不是子shell的PID
 
