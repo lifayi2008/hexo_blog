@@ -414,3 +414,41 @@ $ pushd [-n] [+N | -N | dir]
 -N     将第N个目录（按照dirs的显示从右到左第一个为0）交换到目录栈的顶端并且，切换到这个目录
 dir     指定要切换到的目录
 ```
+
+#### 控制命令提示符
+
+Bash每次打印首要命令提示符时会检查`PROMPT_COMMAND`变量的值。如果这个变量被设置并且非空，则shell在打印提示符之前将这个变量的值作为命令执行
+
+下面表示可以在命令提示符变量`PS1`到`PS4`中可以使用的特殊字符及代表的意义：
+
+**`\a`**    响铃字符
+**`\d`**    时间，以“星期 月 日”的格式
+**`\D{format}`**    将format传递个strftime(3)系统函数，并将结果值插入PROMPT；如果format为空则使用地区相关的当前时间，注意大括号是必须的
+**`\e`**    转义字符
+**`\h`**    主机名，到第一个`.`的内容；`PS1`默认值包括这个特殊字符
+**`\H`**    完整主机名包括域名
+**`\j`**    shell管理的作业数量
+**`\l`**    shell终端设备名的`basename`
+**`\n`**    换行
+**`\r`**    回车
+**`\s`**    shell名，`$0`连接线后面的部分
+**`\t`**    24小时，`HH:MM:SS`格式的时间
+**`\T`**    12小时，`HH:MM:SS`格式的时间
+**`\@`**    12小时，`am/pm`格式的时间
+**`\A`**    24小时，`HH:MM`格式的时间
+**`\u`**    当前登录的用户名；`PS1`默认包含这个特殊字符
+**`\v`**    Bash版本
+**`\V`**    
+**`\w`**    当前工作目录，家目录缩写为一个`~`
+**`\W`**    `$PWD`变量的`basename`，家目录缩写为一个`~`
+**`\!`**    命令的`history number`
+**`\#`**    命令的`command number`
+**`\$`**    如果当前有效id是0则显示为`#`，否则显示为`$``
+**`\nnn`**   
+**`\\`**    反斜线
+**`\[`**    开始一个非打印字符序列，This could be used to embed a terminal control sequence into the prompt.
+**`\]`**    结束一个非打印字符序列
+
+command number和history number通常是不同的：command表示当前会话中执行的command的号码，history还包括其他会话执行的已经存储到history文件中的命令
+
+当特殊字符替换完毕后，还要经过`parameter expansion`, `command substitution`, `arithmetic expansion`, 和`quote removal`，并且要受到`promptvars` shell选项值的限制
