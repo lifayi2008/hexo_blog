@@ -111,15 +111,15 @@ if [ -n "$BASH_ENV" ]; then . "$BASH_ENV"; fi
 当bash以Posix模式启动时，和在命令行选项使用`--postfix`一样，bash会按照POSIX标准的startup files执行。这种模式中shell查找ENV变量，并且将变量值作为一个文件名读取并执行这个文件，同事bash不会读取其他任何startup files
 
 **被远程的shell服务调用**  
-Bash attempts to determine when it is being run with its standard input connected to a network connection, as when executed by the remote shell daemon, usually rshd, or the secure shell daemon sshd. If Bash determines it is being run in this fashion, it reads and executes commands from ~/.bashrc, if that file exists and is readable. It will not do this if invoked as sh. The --norc option may be used to inhibit this behavior, and the --rcfile option may be used to force another file to be read, but neither rshd nor sshd generally invoke the shell with those options or allow them to be specified.
+bash会尝试识别是否在被调用的时候将标准输入连接到网络，比如被远程的shell服务执行，通常是`rshd`，或者shell服务`sshd`。如果bash确定是以这种方式执行，它会从`~/.bashrc`文件（如果文件存在并且可读）中读取并执行命令。如果使用sh命令调用则不会执行上述操作。`--norc`选项也会阻止这种行为，`--rcfile`则可以要读取的文件的位置，但是执行远程调用的应用`rshd sshd`通常不会提供给你设置参数的机会
 
-**Invoked with unequal effective and real UID/GIDs**  
-If Bash is started with the effective user (group) id not equal to the real user (group) id, and the -p option is not supplied, no startup files are read, shell functions are not inherited from the environment, the SHELLOPTS, BASHOPTS, CDPATH, and GLOBIGNORE variables, if they appear in the environment, are ignored, and the effective user id is set to the real user id. If the -p option is supplied at invocation, the startup behavior is the same, but the effective user id is not reset.
+**使用不同于真实UID/GID的有效用户ID调用**  
+如果调用bash的有效用户ID不同于当前真实用户ID，并且未提供`-p`选项，则不会读取任何启动文件，也不会从环境中继承shell函数，如果环境中有`SHELLOPTS` ` BASHOPTS` `CDPATH` `GLOBIGNORE`变量也被忽略，并且有效用户ID会被设置为真实用户ID；如果使用`-p`选项，则有效用户ID不会被设置，其他的同上
 
 #### 交互式shell
 
 ##### 什么是交互式shell
-交互式shell是指调用bash时没有非选项的参数，除非指定`-s`选项同时有没有指定`-c`选项，并且bash的输入输出和错误输出都连接到一个终端，或者启动时使用`-i`选项
+交互式shell是指调用bash时没有非选项的参数，或者指定`-s`选项同时有没有指定`-c`选项，并且bash的输入输出和错误输出都连接到一个终端，或者启动时使用`-i`选项
 
 交互式shell通常从终端读取数据，并且向终端写入数据
 
@@ -175,9 +175,9 @@ fi
 
 表达式可以是一元的或者二元的。一元的表达式通常用来检查一个文件的状态。也有字符串操作和数值对比操作符。如果file参数指代的操作对象是`/dev/fd/N`的形式，则文件描述符`N`被检查。如果file参数指代的对象是`/dev/stdin`，`/dev/stdout`或者`/dev/stderr`则文件描述符0，1，2被检查
 
-在`[[`结构中`<` `>`操作符按本地语言字符顺序排序。而test命令则按ascii的顺序排序
+在`[[`结构中`<` `>`操作符按本地语言字符顺序排序。而`test`命令则按`ascii`的顺序排序
 
-除非特别指出，下面这些file如果是一个符号连接的话，都需要进行解引用（检查符号连接指代的对象，而非符号连接本身）:
+除非特别指出，下面这些`file`如果是一个符号连接的话，都需要进行解引用（检查符号连接指代的对象，而非符号连接本身）:
 
 **`-a file`**  
 **`-e file`**  
@@ -261,7 +261,9 @@ True if string1 sorts before/after string2 lexicographically.
 
 #### shell算术运算
 
-使用shell扩展或者内置命令`let`或者内置名`declare -i`选项声明的变量都可以进行算术运算
+使用shell扩展或者`(())`表达式或者内置命令`let`或者内置命令`declare -i`选项声明的变量都可以进行算术运算
+
+> 注意：`(())`表达式和`let`命令也做算术运算但是结果是一个返回值（0或者1）而不是算术表达式计算的结果
 
 运算使用固定宽度的整型数并且不进行溢出检查，但是如果有除0的操作的话会被捕获并且报错。操作符的优先级，结合性和C语言中的一样。下面的一系列操作符会按优先级分为几个等级。下面列出的操作符优先级依次降低
 
@@ -320,21 +322,24 @@ True if string1 sorts before/after string2 lexicographically.
 逗号运算符
 
 Shell variables are allowed as operands; parameter expansion is performed before the expression is evaluated. Within an expression, shell variables may also be referenced by name without using the parameter expansion syntax. A shell variable that is null or unset evaluates to 0 when referenced by name without using the parameter expansion syntax. The value of a variable is evaluated as an arithmetic expression when it is referenced, or when a variable which has been given the integer attribute using ‘declare -i’ is assigned a value. A null value evaluates to 0. A shell variable need not have its integer attribute turned on to be used in an expression.
-Constants with a leading 0 are interpreted as octal numbers. A leading ‘0x’ or ‘0X’ denotes hexadecimal. Otherwise, numbers take the form [base#]n, where the optional base is a decimal number between 2 and 64 representing the arithmetic base, and n is a number in that base. If base# is omitted, then base 10 is used. When specifying n, he digits greater than 9 are represented by the lowercase letters, the uppercase letters, ‘@’, and ‘_’, in that order. If base is less than or equal to 36, lowercase and uppercase letters may be used interchangeably to represent numbers between 10 and 35.
-Operators are evaluated in order of precedence. Sub-expressions in parentheses are evaluated first and may override the precedence rules above.
+
+以0开始的常量被当作是8进制的数值，以`0x`或者`0X`开始则被当作十六进制。否则数值常量使用`[base#]n`的形式，`base`是一个在2到64之间的数字表示进制，`n`是基于这个进制的数值。如果`base#`为空，则表示十进制。如果`base`大于10则使用`数字` `小写字母` `大写字母` `@` `_`字符（并且按这样的顺序）来表示每一个位置上的数字值。如果`base`小于36也可以在数字之后直接使用大写字母来表示10到35之间的数字值
+
+操作符按照优先级的顺序进行计算，可以使用小括号来改变这种优先级
 
 #### 别名
 
 Aliases可以让我们将简单命令中的第一个word进行字符串替换。shell维护一个包含所有aliases的列表，可以使用alias或者unalias内置命令来设置或者取消别名
 
-简单命令的第一个word，如果未被引用，则会检查它是否是一个别名。如果是的话则会被别名的内容（别名值）代替。`/` `$` `` ` `` `=`和任何元字符以及引用字符都不能出现在别名名字中。而别名内容可以包括任何可以在bash中输入的字符，包括shell元字符
+简单命令的第一个word，如果未被引用，则会检查它是否是一个别名。如果是的话则会被别名的内容（别名值）代替。`/` `$` `` ` `` `=`和任何元字符以及引用字符都不能出现在别名名字中。而别名内容可以包括任何可以在bash中输入的字符，包括shell元字符而别名内容可以包括任何可以在bash中输入的字符，包括shell元字符。别名内容的第一个word会被再次检查是否是别名，但是如果第一个word等同于别名名称则不会再被替换。比如，`ls`命令是`ls -F`的别名，则不会进行递归的别名替换。如果别名值的最后一个字符是空白，则后面紧接着的word也会做别名检查
 
-The first word of each simple command, if unquoted, is checked to see if it has an alias. If so, that word is replaced by the text of the alias. The characters ‘/’, ‘$’, ‘`’, ‘=’ and any of the shell metacharacters or quoting characters listed above may not appear in an alias name. The replacement text may contain any valid shell input, including shell metacharacters. The first word of the replacement text is tested for aliases, but a word that is identical to an alias being expanded is not expanded a second time. This means that one may alias ls to "ls -F", for instance, and Bash does not try to recursively expand the replacement text. If the last character of the alias value is a blank, then the next command word following the alias is also checked for alias expansion.
-Aliases are created and listed with the alias command, and removed with the unalias command.
-There is no mechanism for using arguments in the replacement text, as in csh. If arguments are needed, a shell function should be used (see Shell Functions).
-Aliases are not expanded when the shell is not interactive, unless the expand_aliases shell option is set using shopt (see The Shopt Builtin).
-The rules concerning the definition and use of aliases are somewhat confusing. Bash always reads at least one complete line of input before executing any of the commands on that line. Aliases are expanded when a command is read, not when it is executed. Therefore, an alias definition appearing on the same line as another command does not take effect until the next line of input is read. The commands following the alias definition on that line are not affected by the new alias. This behavior is also an issue when functions are executed. Aliases are expanded when a function definition is read, not when the function is executed, because a function definition is itself a compound command. As a consequence, aliases defined in a function are not available until after that function is executed. To be safe, always put alias definitions on a separate line, and do not use alias in compound commands.
-For almost every purpose, shell functions are preferred over aliases.
+和csh一样，在别名值中不能使用参数。如果需要一个参数可以使用函数代替别名
+
+如果shell是非交互式，则默认不会进行别名替换，除非使用`shopt`命令的`expand_aliases`选项
+
+关于别名的定义和使用可能有些令人混淆的地方。Bash总是读取一个完整的行之后才会执行这一行的命令。而别名需要在命令被读取时进行替换，而不是执行时。所以，如果别名定义和其他命令在同一行时，直到下一次执行命令时别名才会生效。而同一行中别名定义之后的命令不能使用这个别名。这样的问题在函数定义过程中也存在，如果在函数定义中有别名定义，则只有在函数执行时这个别名才被设置。所以为了安全期间，别名定义通常放置在单独的一行，并且不在组合命令中使用别名
+
+综合各种原因，应该优先使用函数而不是别名
 
 #### 数组
 
