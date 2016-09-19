@@ -308,3 +308,150 @@ awk中可以使用`空` `空字符串（""）` `空格`来连接字符串，效�
 awk同样也支持`break`和`continue`用来控制循环
 
 awk另外还支持`exit`语句，它会立即停止脚本，开始执行END Block中的内容
+
+#### awk数组
+
+awk数组和其他程序语言的数组相比较，awk 数组非常强大。在awk中，数组是关联的。即一个数组包含多个多个 由index/value组成的对，index不需要设置成一个数字，事实上可以是一个字符串或一个数字，不要指定一个数组的大小。awk自动为初次使用的数组元素分配空或者0，另外在awk4以后的版本中支持多维数组，可以任意进行第n个维度的遍历
+
+awk总是将索引看作是一个字符串，即使你使用数字也是一样的，所以`a[1]`和`a["1"]`是同一个元素
+
+可以使用`if`语句检查一个索引是否存在于一个数组中：`if(index in arrayName)`
+
+可以使用`for`语句来遍历一个数组：`for(var in arrayName)`，`var`会依次被使用数组中的所有索引赋值
+
+可以使用`delete arrayName[index]`来删除数组中的一个元素，或者使用`delete arrayName`来删除整个数组
+
+可以使用`asort(arrayName)`来排序数组元素值；awk将数组元素`value`进行排序并且生成新的`key`为`1~n`来覆盖原来的`key`；如果想保留原来的数组不变，可以使用另外一个参数来作为数组名生成一个新的数组；这个函数的返回值是数组元素的个数
+
+可以使用`asorti(arrayName)`来排序一个数组的`key`，排序之后数组的`key`为`1~n`原来的`key`变为现在的`value`；同样可以使用另外一个参数来作为新数组名，而让原来的数组不变
+
+> `asort` `asorti`还有第三个可选参数用来指示如何排序，详细内容参考awk手册
+
+#### awk函数
+
+##### 字符串相关的函数
+
+**`sub gsub gensub`**  
+这些函数用来在记录或者目标字符串中查找匹配正则表达式的字符串，然后使用替换字符串替换这些匹配到的字符串；默认在当前记录中查找；正则表达式使用`/`包围
+
+`sub(r, s [, t])`在目标字符串`t`或者当前记录中查找匹配正则表达式`r`的子串并且使用`s`来替换，只替换第一次匹配到的
+
+`gsub(r, s [, t])`可以替换所有匹配到的子串，并且返回值为替换的次数
+
+`gensub(r, s, h [, t])` `h`如果是以`G`或者`g`字符开头则替换所有匹配到的，否则替换第`h`个
+
+> `\\0`和`&`可以被用在替换串中表示匹配到的字符串，如果替换串中出现`&`要使用`\&`的形式，可以在正则表达式中使用`()`，然后在替换串中使用`\\n`来引用
+
+> `gensub`不同于另外两个函数，`gensub`不会修改源字符串，只是将修改后的字符串返回；而另外两个函数则是修改源字符串
+
+**`index`**  
+`index(s, t)` 返回字符串`t`在`s`中第一次出现的位置，偏移量从1开始
+
+**`length`**   
+`length([s])` 返回字符串`s`的长度或者记录的长度
+
+**`substr`**   
+`substr(s, l[, p])` 返回字符串`s`中从`l`开始的`p`长度的子串；如果`p`为空则返回到字符串末尾
+
+**`match`**  
+`match(s, r [, a])` 返回正则表达式`r`在字符串`s`中出现的位置，如果没有出现则返回0；`match`函数会将内置变量`RSTART`设置为子串在字符串中的起始位置，将`RLENGTH`变量设置为匹配的子串长度，这样就可以使用这两个变量和`substr`函数来提取匹配的子串（弥补了`substr`不能使用正则的问题）；如果指定`a`参数则表示一个数组名，则awk会使用匹配到的子串来填充这个数组：`a[0]`表示正则`r`匹配到的整个子串，`a[1]`表示正则`r`中的第一个`()`表达式匹配到的子串，依次类推；同时每个元素还有另外两个子元素`a[n, "start"]` `a[n, "length"]`来表示每一个子串的起始位置和长度
+
+**`split patsplit`**  
+`split(s, a [, r [, seps] ])` 将字符串`s`分隔，并将所有元素放入数组`a`，返回数组元素的个数；默认使用`FS`作为分隔符，如果指定`r`则使用其作为分隔符；如果指定第四个参数`seps`则表示一个数组名，这个数组的第`i`个元素是数组`a[i]`和`a[i+1]`之间的分隔符；如果使用空格作为分隔符，则所有前导和末尾的空格分别作为`seps[0]`和`spes[n]`的值，`n`表示`split`函数的返回值
+
+`patsplit(s, a [, r [, seps] ])`同`split`但是在`r`为空时使用`FPAT`内置变量作为分隔符
+
+**`sprintf`**  
+用法同`printf`表达式，但这是一个函数；并且不会向终端打印字符串，而是返回这个字符串
+
+**`strtonum`**  
+`strtonum(num)`将字符串转换为数字，如果字符串第一个字符非数字则返回0，否则将前缀中的数字字符串提取出来转换为数字；如果第一个字符是`0`或者`0x`则分别被当作8进制和十六进制进行转换
+
+**`tolower toupper`**  
+分别将字符串中的字母转换为小写或者大写，非字母字符不变
+
+##### 数值相关的函数
+
+**`int`**  
+`int(expr)` 将`expr`截断为整数
+
+**`rand`**  
+`rand()`返回一个大于等于0，小于1的随机数
+
+**`srand`**  
+`srand([expr])`为`rand()`函数产生一个随机数种子，默认使用当前时间，返回值为前一个随机数种子
+
+##### 时间相关的函数
+
+**`systime`**  
+`systime()`返回自`1970-01-01 00:00:00 UTC`以来的秒数
+
+**`strftime`**  
+`strftime([format [, timestamp[, utc-flag]]])` 根据`format`提供的格式，将`timestamp`进行格式化处理，`utc-flag`如果非空则表示使用`UTC`时间，否则使用系统指定的时区
+
+    %a  简写的星期名   %A完整的星期名    %b简写的月名称  %B 完整的月份名称  %d用数字表示月份  %D使用月/日/年的形式
+    %c本地日期和时间   %e月份中的某一天,如果只有一个数字用0填充    %H数字表示24小时的中小时   %I数字表示12小时中的小时
+    %j从1月1日到现在的天数   %m数字表示的月份   %M数字表示的分钟数   %p12小时中的AM/PM  %S数字表示的秒数
+    %U数字表示一年中的周数，周日作为一周的开始   %W数字表示一年中的周数，周一作为一周的开始     %w数字表示星期几 
+    %x本地日期   %X本地时间    %y数字表示的年份    %Y完整的数字年份   %%  %字符标记
+    
+#### getline
+
+awk可以使用`getline`函数从`管道` `标准输入`或者`其他文件`读取输入
+`getline`函数用于读取输入的下一行，并且设置内置变量`NF` `NR` `FNR`如果读取到一条记录函数就返回1，如果读取到EOF则返回0，如果发生错误，比如文件不存在则返回-1
+
+`getline` 会获取输入文件的下一行赋给`$0`，同时设置`NF` `NR` `FNR`变量
+
+`getline < filename` 表示从`filename`中获取下一行并赋给`$0`，同时设置`NF`变量
+
+`getline var` 会获取输入文件的下一行并且赋值给`var`，同时设置`NR` `FNR`变量
+
+`getline var < filename` 表示从`filename`中获取下一行并且赋值给`var`
+
+`command | getline [var]`  将command命令的结果的第一行通过管道赋值给`$0`或者`var`；command是一个系统命令并且需要使用双引号，command命令显示结果通过管道发送，调用一次`getline`命令只能获取第一行
+```bash
+awk BEGIN{"date" | getline a; print a}''         ##从命令获取输入
+awk 'BEGIN{while("cal" | getline a) print a}'      ##从命令获取多行输入
+awk 'BEGIN{print "what is your name?";getline name < "/dev/tty";print "you name is",name,"bye bye"}'      ##从标准输入获取输入
+awk 'BEGIN{while(getline <"/etc/passwd" > 0)count++;print count}'    ##统计文件的行数，注意这里一定要添加>0，否则当/etc/passwd不存在时候，会进入死循环，因为此时getline返回-1  不为0
+```
+
+#### awk中的重定向和管道
+
+当使用`print`或者`printf`命令打印时可以使用`>`或者`>>`重定向操作符将内容重定向到某个文件，文件名字使用双引号包围
+
+    awk '{print $1 > "another.txt"}' test.txt 
+    
+> 在文本中的所有行未处理完毕之前>不会清空文件another.txt文件内容
+
+如果在awk中打开了管道，就必须先关闭它才能打开另一个管道(在整个文件处理过程中也只能使用一个管道)
+
+    awk '{print $1,$2,$3 | "sort -r +1 -2 +0 -1"}END{close("sort -r +1 -2 +0 -1")}'
+    
+close(file [, how])
+Close file, pipe or co-process. The optional how should only be used when closing one  end of a two-way pipe to a co-process. It must be a string value, either "to" or "from".
+
+在重定向和管道以及`getline`中可以使用一系列的特殊文件名，通过这些文件名可以访问继承自父进程(通常是shell)打开的文件描述符，从而可以进行一些读写操作
+
+    /dev/stdin     The standard input.
+    /dev/stdout     The standard output.
+    /dev/stderr     The standard error output.
+    /dev/fd/n     The file associated with the open file descriptor n.
+
+#### awk其他使用技巧
+
+在awk中执行系统命令：
+
+`print ... | command` 将打印内容通过管道发送，`command`通过管道获取输入然后执行命令
+
+`command | getline [var]` 在前面已经介绍过
+
+`system(command)`函数将系统命令作为参数，执行这个命令并且将退出状态返回给awk
+
+> 上面三种情况的`command`都必须加双引号
+
+`FIELDWIDTHS`变量可以指定每个字段为特定的字符数，如：awk -vFIELDWIDTHS="1 2 9999"指定第一个字段为行中的第一个字符，第二个字段为接下来的2个字符第三个字段为接下来的9999个字符(因为linux行字符数的限制，这个基本上可以表示剩下的所有字符了)，注意如果实际行的字符数大于指定的字符数的和，则还会按照指定数字的字符显示，剩下的被舍弃，但是$0仍表示整行
+
+`next/nextfile`命令读取文件的下一行/下一个文件，并从脚本的顶部开始执行
+
+可以在awk的`{action}`后面加一个1或者其他非0数字来让awk打印每一行(不管前面的action是否有打印命令)，注意1表示`1{print}`，其中`1`和`{print}`可以省略其中一个都表示同样的意思
