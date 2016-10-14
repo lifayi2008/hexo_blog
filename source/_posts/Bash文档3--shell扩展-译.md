@@ -17,25 +17,25 @@ categories: Bash
 
 扩展操作的顺序就是上面给出列表的先后顺序；并且从左到右
 
-如果系统支持，还有另外一种扩展：process substitution。这种扩展和tilde、parameter variable 和arithmetic expansion和command substitution一起进行
+如果系统支持，还有另外一种扩展：`process substitution`。这种扩展和`tilde`、`parameter variable 和arithmetic expansion`和`command substitution`一起进行
 
-只有brace expansion、word splitting和filename expansion可能会改变扩展后的word数量，其他的扩展都是将一个word扩展为另外一个word。有两个例外是`$@`和`${name[@]}`
+只有`brace expansion`、`word splitting`和`filename expansion`可能会改变扩展后的word数量，其他的扩展都是将一个word扩展为另外一个word。有两个例外是`$@`和`${name[@]}`
 
-所有扩展进行完毕后，quote removal才进行
+所有扩展进行完毕后，`quote removal`才进行
 
 #### 大括号扩展
 
-brace expansion是一种产生任意字符串的技巧。这种技巧和filename expansion中的`[]`有些类似，但是不需要相应的文件名存在。 大括号扩展的格式是：一个可选的前导字符串，然后是一系列括在大括号中的逗号分隔的字符串或者序列表达式，最后一个可选的后缀字符串。前导字符串会和大括号中的每一个项目连接，然后再连接后缀字符串。扩展按大括号中项目的顺序从左到右进行
-brace expansion可以嵌套。每一个扩展的结果没有进行排序，而是从左到右的顺序排列。例如：
+`brace expansion`是一种产生任意字符串的技巧。这种技巧和`filename expansion`中的`[]`有些类似，但是不需要相应的文件名存在。 大括号扩展的格式是：一个可选的前导字符串，然后是一系列括在大括号中的逗号分隔的字符串或者序列表达式，最后一个可选的后缀字符串。前导字符串会和大括号中的每一个项目连接，然后再连接后缀字符串。扩展按大括号中项目的顺序从左到右进行
+`brace expansion`可以嵌套。每一个扩展的结果没有进行排序，而是从左到右的顺序排列。例如：
 `bash$ echo a{b,c,d}e`扩展为`abe ace ade`
 
 序列表达式是以`{x..y[..incr]}`的形式，x和y可以是数字或者单个字符；`incr`表示增量，也是一个整数。当使用整数的时候，表达式扩展为x到y之间的所有数字，包括x和y。整数还可以使用若干个前导0，强制扩展后的数字宽度相等；当x或者y以0开始的时候，shell会在扩展产生的每个数字前面按需要补若干个0。当使用字符的时候，扩展为x和y之间按字母顺序的所有字符；注意x和y需要时相同的类型。当提供increment时，表示每隔incr产生一个字符或数字。默认的incr是1或者-1
 
-brace expansion在其他的扩展之前进行，并且任何被其他扩展认为是特殊字符的将会保留。而且严格按原文。bash不会对扩展前的内容进行语法解释。注意`${}`是参数扩展，而`{}`才是大括号扩展
+`brace expansion`在其他的扩展之前进行，并且任何被其他扩展认为是特殊字符的将会保留。而且严格按原文。bash不会对扩展前的内容进行语法解释。注意`${}`是参数扩展，而`{}`才是大括号扩展
 
-正确的brace expansion的形式是一对未引用的大括号和至少一个未引用的逗号或者一个合法的序列表达式。任何不正确的形式都不会进行brace expansion扩展
+正确的`brace expansion`的形式是一对未引用的大括号和至少一个未引用的`逗号`或者一个合法的`序列表达式`。任何不正确的形式都不会进行`brace expansion`扩展
 
-`{`和`,`都可以使用反斜线引用，来放置bash将它作为brace expansion形式的一部分。brace expansion经常被用来产生一些前缀或者后缀相同的字符串，例如：
+`{`和`,`都可以使用反斜线引用，来放置bash将它作为`brace expansion`形式的一部分。`brace expansion`经常被用来产生一些前缀或者后缀相同的字符串，例如：
 `mkdir /usr/local/src/bash/{old,new,dist,bugs}`
 `chown root /usr/{ucb/{ex,edit},lib/{ex?.?*,how_ex}}`
 
@@ -67,7 +67,7 @@ Each variable assignment is checked for unquoted tilde-prefixes immediately foll
 
 **`~-N`**  命令`dirs -N`显示的目录
 
-#### Shell参数扩展
+#### 参数扩展
 
 Shell中的`$`字符，引入了参数扩展，命令扩展和算术扩展。可以使用大括号将参数名或者符号(变量名)括起来，以防止紧跟着参数名的字符也被shell当成是名称的一部分
 
@@ -77,9 +77,9 @@ Shell中的`$`字符，引入了参数扩展，命令扩展和算术扩展。可
 
 如果parameter的第一个字符是感叹号`!`，表示间接变量。bash使用感叹号后面的这部分参数名的值作为一个参数名；然后参数名被扩展，扩展的结果作为整个替换的结果。这称为间接扩展。这种形式的例外情况是下面将要描述的`${!prefix*}`和`${!prefix@}`。要表示间接扩展感叹号必须紧跟着大括号的左边括号
 
-下面描述的每种情况，**word**都要经过 *tilde expansion\ parameter expansion、 command substitution*和 *算术扩展*
+下面描述的每种情况，**word**都要经过 *tilde expansion、parameter expansion、command substitution*和 *算术扩展*
 
-如果不是进行求子串的扩展，使用下面的这种形式`:-`，表示测试parameter为空或者未设置。没有冒号时，只检查parameter是否未设置然后进行扩展操作。换句话说，如果包含冒号，操作符检查的条件是parameter是否为空或者未设置，而没有冒号时，操作符只检查parameter是否为空
+如果不是进行求子串的扩展，使用下面的这种形式`:-`，表示测试parameter为空或者未设置，没有冒号时，只检查parameter是否未设置然后进行扩展操作
 
 **`${parameter:-word}`**  
 如果parameter为空或者未设置，替换的结果为word，否则直接使用parameter的值替换
@@ -222,7 +222,7 @@ pattern按照 *filename expansion*的规则扩展产生一个匹配模式。para
 **`${parameter^^pattern}`**  
 **`${parameter,pattern}`**  
 **`${parameter,,pattern}`**  
-这些扩展更改parameter的值的大小写。pattern按照filename expansion的规则产生一个匹配模式。parameter的值的每个字符都按照pattern进行测试，如果匹配则进行大小写转换。pattern不应该尝试匹配多个字符。`^`操作符将小写字符转换为大写字符，`,`操作符将大写字符转换为小写；它们都只转换第一个匹配到的字符，而`^^`和`,,`则转换每一个匹配到的字符。如果pattern为空则默认是`?`，表示匹配任意单个字符。如果parameter是位置参数或者数组则操作方式和上面几种情况类似
+这些扩展更改parameter的值的大小写。pattern按照filename expansion的规则产生一个匹配模式。parameter的值的每个字符都按照pattern进行测试，如果匹配则进行大小写转换。*pattern不应该尝试匹配多个字符*。`^`操作符将小写字符转换为大写字符，`,`操作符将大写字符转换为小写；它们都只转换第一个匹配到的字符，而`^^`和`,,`则转换每一个匹配到的字符。如果pattern为空则默认是`?`，表示匹配任意单个字符。如果parameter是位置参数或者数组则操作方式和上面几种情况类似
 
 #### 命令替换
 
@@ -241,7 +241,7 @@ Bash将执行command的输出来替换命令名，替换后结尾的换行符被
 
 *如果命令替换结果加了双引号*，则word splitting和filename expansion不会进行
 
-##### 算术扩展
+#### 算术扩展
 
 算术扩展将算术表达式进行计算，然后使用计算结果替换整个表达式。算术扩展的格式是：
 ```bash
@@ -271,14 +271,14 @@ shell扫描parameter expansion command substitution和arithmetic expansion的结
 
 Shell将`$IFS`的每一个字符作为分隔符，使用分隔符将其他扩展的结果分隔为单个的word。如果IFS未设置，或者它的值就是`<space>` `<tab>` `<newline>`这些默认值，则扩展结果中的开始的和结束的一串默认分隔符都被忽略，其他位置的一串默认分隔符用来分隔操作。如果IFS非默认值，则扩展结果中开始和结束的一连串的空格和tab也被忽略，就像空格字符也在$IFS中一样。IFS中的其他字符用来作为word splitting的分隔符。一系列的空格也被当做是一个分隔符。如果IFS为空值，则不进行word splitting
 
-显式的给IFS赋空值(""或者'')，则IFS为空值。未引用的隐式的空值，比如parameter expansion导致的空参数，则IFS为原来的值(默认值)。但是如果将隐式的空参数放置在双引号中则仍将IFS赋空值(原文如下，感觉不是作者的意思)
+显式的给IFS赋空值(`""`或者`''`)，则IFS为空值。未引用的隐式的空值，比如parameter expansion导致的空参数，则IFS为原来的值(默认值)。但是如果将隐式的空参数放置在双引号中则仍将IFS赋空值(原文如下，感觉不是作者的意思)
 Explicit null arguments ("" or '') are retained. Unquoted implicit null arguments, resulting from the expansion of parameters that have no values, are removed. If a parameter with no value is expanded within double quotes, a null argument results and is retained. 
 
 >*注意：如果没有进行expansion则不会进行word splitting*
 
 #### 文件名扩展
 
-word splitting之后，除非使用了-f参数，bash扫描每一个word中的`*` `?`` 和`[`字符。如果前面任意一个字符出现，则这个word被认为是一个pattern，然后用匹配这个pattern的所有文件名来进行替换，这些文件按字母顺序排序。如果没有匹配到，并且禁用了nullglob选项，则word按字面意义。如果没有匹配，启用了nullglob选项，则word被移除。如果启用了failglob选项，并且没有匹配到任何文件，则返回错误消息，并且命令不被执行。如果启用nocaseglob选项，则匹配时不区分大小写
+word splitting之后，除非使用了-f参数，bash扫描每一个word中的`*` `?` `[`字符。如果前面任意一个字符出现，则这个word被认为是一个pattern，然后用匹配这个pattern的所有文件名来进行替换，这些文件按字母顺序排序。如果没有匹配到，并且禁用了nullglob选项，则word按字面意义。如果没有匹配，启用了nullglob选项，则word被移除。如果启用了failglob选项，并且没有匹配到任何文件，则返回错误消息，并且命令不被执行。如果启用nocaseglob选项，则匹配时不区分大小写
 
 当pattern被用来匹配文件名时，以一个`.`字符开始的文件名或者`.`然后紧跟一个斜线的文件名需要被显式的匹配，除非bash设置了dotglob选项。当匹配一个文件名时，斜线字符必须被显式的匹配，`.`字符则总是按字母意义
 
