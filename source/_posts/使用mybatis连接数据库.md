@@ -1,8 +1,8 @@
 ---
 title: 使用mybatis连接数据库
 date: 2016-07-28 18:11:21
-tags: [mybatis, java]
-categories: java
+tags: [Mybatis, Java]
+categories: Java
 ---
 
 本文展示一个简单使用mybatis连接数据的实例
