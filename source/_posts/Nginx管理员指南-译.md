@@ -1,7 +1,7 @@
 ---
 title: Nginx管理员指南-译
 date: 2016-08-22 15:21:06
-tags: [Nginx, Web]
+tags: [nginx, web]
 categories: 基础服务
 ---
 #### Nginx进程及进程管理

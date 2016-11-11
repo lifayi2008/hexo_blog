@@ -1,7 +1,7 @@
 ---
 title: 使用mybatis连接数据库
 date: 2016-07-28 18:11:21
-tags: [Mybatis, Java]
+tags: [mybatis, java]
 categories: Java
 ---
 
