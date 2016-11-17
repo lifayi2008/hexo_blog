@@ -246,7 +246,7 @@ mathjax:
 # Duoshuo ShortName
 duoshuo_shortname: lifayi2008
 duoshuo_share: true
-duoshuo_hotartical: true
+#duoshuo_hotartical: true
 
 # Disqus
 #disqus_shortname:
