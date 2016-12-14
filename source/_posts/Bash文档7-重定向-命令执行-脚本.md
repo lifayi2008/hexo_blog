@@ -1,5 +1,5 @@
 ---
-title: Bash文档7--重定向&命令执行&脚本
+title: Bash文档7--重定向/命令执行/脚本
 date: 2016-09-13 14:02:54
 tags: bash
 categories: Bash
