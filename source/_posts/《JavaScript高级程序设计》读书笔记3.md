@@ -1355,7 +1355,9 @@ var bookCopy = JSON.parse(jsonText)
 
 ### Ajax与Comet
 
-`Ajax`（Asynchronous JavaScript + XML）技术的核心是`XMLHttpRequest`对象（简称`XHR`）；虽然名字中包含`XML`，但是与实际通信使用的数据格式无关
+`Ajax`（Asynchronous JavaScript + XML）技术的核心是`XMLHttpRequest`对象（简称`XHR`），可以在无需卸载页面的情况下向服务器请求更多的数据；`Ajax`虽然名字中包含`XML`，但是与实际通信使用的数据格式无关
+
+在`XHR`对象出现之前，开发人员需要使用`java applet`或者`Flash`相关技术向服务器发送请求；而`XHR`对象则将浏览器原生的`HTTP`通信能力提供给了开发人员
 
 #### XMLHttpRequest对象
 
@@ -1500,7 +1502,7 @@ data.append("name", "Nicholas");
 //也可以在创建对象时向构造函数传入表单对象
 var data = new FormData(document.forms[0]);
 ```
-创建了一个`FormData`对象类型实例之后就可以将它传给`send()`方法
+创建了一个`FormData`对象类型实例之后就可以将它传给`send()`方法；使用这个对象的方便之处是不必明确的在`XHR`对象上设置请求头部，`XHR`能够识别传入的数据类型是`FormData`并且自动添加合适的头部信息
 
 **`超时设定`**
 
@@ -1560,13 +1562,13 @@ xhr.send(null);
 
 使用`XHR`来进行`Ajax`请求的一点限制是：只能访问和当前页在同一个域中的资源；`CORS`（Cross-Origin Resource Sharing）用来进行跨源资源的请求
 
-`CORS`使用自定义的`HTTP`头部让浏览器与服务器进行通信；比如发送一个请求时，没有自定义的头部，并且主体内容是`text/plain`，在发送该请求时附加一个额外的`Origin`头部，包含了请求页面的源信息（协议、域名、端口），比如：`Origin: http://www.nc.net`；如果服务器认为这个请求可以接收，就在`Access-Control-Allow-Origin`响应头中加上和请求相同的信息
+`CORS`使用自定义的`HTTP`头部让浏览器与服务器进行通信；比如发送一个请求时，没有自定义的头部，并且主体内容是`text/plain`，在发送该请求时附加一个额外的 **`Origin`** 头部，包含了请求页面的源信息（协议、域名、端口），例如：`Origin: http://www.nc.net`；如果服务器认为这个请求可以接收，就在`Access-Control-Allow-Origin`响应头中加上和请求相同的信息
 
 > 这个请求和响应都不包含cookie信息
 
 **`IE对CORS的实现`**
 
-`IE8`中使用`XDomainRequest`类型，这个类型和`XMLHttpRequest`类型相似，但是可以实现安全的跨域通信。下面是两者的不同之处：
+`IE8`中使用`XDomainRequest`对象类型，这个类型和`XMLHttpRequest`类型相似，但是可以实现安全的跨域通信。下面是两者的不同之处：
 
 ```javascript
 cookie不会随请求发送，也不会被添加到响应中
@@ -1574,22 +1576,73 @@ cookie不会随请求发送，也不会被添加到响应中
 不能访问响应头部信息
 只支持GET和POST请求
 ```
-详细的信息参考`《JavaScript高级程序设计》p583`
+使用这个对象创建的请求头中包含`Origin`信息，服务器可以根据这个头字段值来决定是否相应请求
+
+`XDR`对象的使用方法和`XHR`对象类似：创建一个对象实例，调用对象实例的`open()`方法，再调用对象的`send()`方法；但是这个对象的`send()`方法只接受两个参数：请求的类型和`URL`；请求返回后也会触发`load`事件，响应的数据也保存在`responseText`属性中：
+
+```javascript
+var xdr = new XDomainRequest();
+xdr.onload = function() {
+    alert(xdr.responseText);
+};
+xdr.open("get", "http://www.somewhere.com/page/");
+xdr.send(null);
+```
+使用这个对象只能发送异步的请求；在接收到响应之后，只能访问响应的原始文本，没有办法确定相应的状态码；而且只要响应有效就会触发`load`事件，如果失败（包括缺少`Access-Control-Allow-Origin`头部）就会触发`error`事件，但是`error`事件对象不包含任何信息
+
+> 通常需要对`error`事件建立事件处理程序，来检测请求失败
+
+在请求返回之前可以调用`abort()`方法来中止请求；与`XHR`在`IE`中的实现类似，也可以为`XDR`对象的`timeout`属性赋一个值来指定请求超时时间，并且超时时会触发`ontimeout`事件：
+
+```javascript
+xdr.timeout = 1000;
+xdr.ontimeout = function() {
+    alert("Request took too long");
+};
+```
+
+对于`post`请求类型，`XDR`对象也支持`contentType`属性，可以用来指定发送请求数据的类型，这个属性是通过`XDR`对象影响头部信息的唯一方式:
+
+```javascript
+var xdr = new XDomainRequest();
+xdr.open("post", "http://www.somewhere.com/page/");
+xdr.contentType = "application/x-www-form-urlencoded";
+xdr.send("name1=value1&name2=value2");
+```
 
 **`其他浏览器的实现`**
 
-其他大多数浏览器都通过`XMLHttpRequest`对象实现了对`CORS`的原生支持；只需要在调用`open()`方法时将`URL`设置为绝对路径即可
+其他大多数浏览器都直接通过`XMLHttpRequest`对象实现了对`CORS`的原生支持；只需要在调用`open()`方法时将`URL`设置为绝对路径即可
 
 相应返回后通过`XHR`对象可以访问`status`和`statusTest`属性，并且还支持同步异步请求；但是也有一些限制：
 
 ```javascript
 不能使用setRequestHeader()设置头部
+
 不能接收和发送cookie
+
 调用getAllResponseHeaders()方法返回空字符串
 ```
 > 所以在使用`XHR`对象时，访问本域内资源最好使用相对路径，访问其他域资源使用绝对路径
 
 **`Preflighted Requests`**
+
+使用这种技术的`CORS`支持开发人员自定义头部、使用除`GET` `POST`之外的请求方法、以及不同类型的主体内容。实现方式是首先发送一个请求方法为`OPTIONS`的`Preflight`请求，请求包括下面头部信息：
+
+```javascript
+Origin      与简单请求相同
+Access-Control-Request-Method       请求自身使用的方法
+Access-Control-Request-Header       (可选)自定义的头部信息，多个头部以逗号分隔
+```
+服务器可以决定是否允许这种类型的请求。服务器通过在响应中发送如下头部信息与浏览器进行沟通：
+
+```javascript
+Access-Control-Allow-Origin     与简单请求相同
+Access-Control-Allow-Methods    允许的请求方法，多个方法以逗号分隔
+Access-Control-Allow-Headers    允许的头部，多个头部以逗号分隔
+Access-Control-Max-Age          应该将这个Preflight请求缓存多长时间（秒）
+```
+> 请求结束后，结果将按照指定的缓存时间进行缓存；最新版本的其他浏览器都支持这种请求，`IE10`之前的版本不支持
 
 **`带凭据的请求`**
 
@@ -1625,10 +1678,10 @@ if(request) {
 
 //IE和其他类型CORS都可以使用的方法有：
 abort()     用于停止正在进行的请求
+send()      用于发送请求
 onerror     用于替代onreadystatechange检测错误
 onload      用于替代onreadystatechange检测成功
 responseText属性    用于取得相应内容
-send()      用于发送请求
 ```
 
 #### 其他的跨域技术
@@ -1642,6 +1695,66 @@ send()      用于发送请求
 **`服务器发送事件`**
 
 **`Web Sockets`**
+
+`Web Sockets`的目标是在一个单独的持久连接上提供全双工、双向通信。在`JS`中创建了`Web Sockets`之后，会有一个`HTTP`发送到浏览器以发起连接；取得服务器响应之后，建立的连接从`HTTP`协议转换为`Web Socket`协议。所以需要服务器端也支持`Web Sockets`协议才可以
+
+> `Web Sockets`协议的`URL`使用`ws://`和`wss://`（加密连接）
+
+要创建一个`Web Socket`首先实例一个`WebSocket`对象并传入要连接的`URL`:
+
+```javascript
+var socket = new WebSocket("ws://www.example.com/server.php");
+```
+> 传入的`URL`必须使用绝对路径，因此可以打开到任何域的连接，但是是否可以通信要看服务器的处理
+
+实例化一个`WebSocket`对象之后，浏览器马上就会尝试创建连接；`WebSocket`也有一个表示当前状态的`readyState`属性，属性的值如下：
+
+```javascript
+WebSocket.OPENING   (0)     正在建立连接
+WebSocket.OPEN      (1)     已经建立连接
+WebSocket.CLOSING   (2)     正在关闭连接
+WebSocket.CLOSE     (3)     已经关闭连接
+```
+> `WebSocket`没有`readystatechange`事件，不过有其他事件来表示不同的状态；`readyState`属性的值从0开始
+
+要关闭`Web Sockets`连接可以在任何时候调用`close()`方法；调用这个方法之后`readyState`属性值变为2（正在关闭），关闭连接之后就变成3
+
+要向服务器发送数据使用`send()`方法并传入任意字符串：
+
+```javascript
+var socket = new WebSocket("ws://www.example.com/server.php");
+socket.send("Hello world");
+```
+`Web Sockets`只能发送纯文本数据，所以对于复杂类型的数据结构，需要在发送之前进行序列化：
+
+```javascript
+var message = {
+    time: new Date(),
+    text: "Hello world!",
+    clientId: "ssdfadffads"
+};
+socket.send(JSON.stringify(message));
+```
+服务器要读取其中的数据，就要解析接收到的`JSON`字符串。
+
+当服务器向客户端发来消息时，`WebSocket`对象就会触发`message`事件；返回的数据字符串会保存在这个事件对象的`data`属性中：
+
+```javascript
+socket.onmessage = {
+    var data = event.data;
+    //其他处理
+};
+```
+
+`WebSocket`对象还有另外三个事件，在连接生命周期的不同阶段触发：
+
+```javascript
+open        在成功建立连接时触发
+error       在发生错误时触发，连接不能持续
+close       在连接关闭时触发
+这个事件的事件对象有额外的信息属性：`wasClean`是一个布尔值，表示连接是否已经明确地关闭；`code`是服务器返回的数值状态码；`reason`是一个字符串，包含服务器发送的信息
+```
+> `WebSocket`对象不支持`DOM2`级事件处理程序，所以必须使用`DOM0`级语法分别定义每个事件的处理程序
 
 #### 安全
 
