@@ -7,18 +7,20 @@ categories: JavaScript
 ### BOM
 
 `BOM`提供了很多功能用于访问浏览器的功能，这些功能与网页内容无关。目前W3C已经将`BOM`的主要方法纳入到`HTML5`规范中
-
-#### window对象
 <!-- more -->
+#### window对象
+
 `window`是`BOM`的核心对象，它表示一个浏览器实例。在浏览器中`window`对象有双重的角色：一方面是`JavaScript`访问浏览器的一个重要接口；另外一方面它又是`ECMAScript`中的`Global`对象，所以在程序中定义的全局变量、函数、对象都属于`window`对象的
 
-> 注意：全局的变量和直接定义在`window`对象上的属性还是有区别的：后者可以使用`delete`操作符删除，但是前者不能，因为使用`var`关键字添加的全局变量的`[[Configurable]]`属性被设置为`false`；另外尝试访问未经声明的变量会返回错误，但是通过查询`window`对象属性的方式就可以知道这个可能未声明的变量是否存在
+> 全局的变量和直接定义在`window`对象上的属性还是有区别的：后者可以使用`delete`操作符删除，但是前者不能，因为使用`var`关键字添加的全局变量的`[[Configurable]]`属性被设置为`false`
+
+> 尝试访问未经声明的变量会返回错误，但是通过查询`window`对象属性的方式就可以知道这个可能未声明的变量是否存在
 
 后面要讲的几个全局的对象：`location` `navigator` `screen` `history`对象都是`window`对象的属性
 
 **`窗口关系及框架`**
 
-如果页面中包含多个`<frame>`，则每一个`<frame>`都有自己的`window`对象，并且保存在`frames`集合中，我们可以通过数值索引或者框架名称来访问相应的`window`对象：
+如果页面中包含多个`<frame>`，则每一个`<frame>`都有自己的`window`对象，并且保存在`frames`集合中，我们可以通过数值索引或者框架名称（name属性）来访问相应的`window`对象：
 
 ```html
 <html>
@@ -75,6 +77,8 @@ if(typeof pageWidth != "number") {
 ```
 
 `resizeTo()` `resizeBy()`方法可以将窗口大小进行调整；这两个方法都接收两个参数，第一个方法的两个参数表示要调整到的绝对大小的宽度和高度，第二个方法的两个参数表示要增加的宽度和高度
+
+> 这两个设置浏览器窗口大小的方法有可能被浏览器禁用
 
 **`导航和打开窗口`**  
 
@@ -154,7 +158,7 @@ if(blocked) {
 
 #### location对象
 
-这个对象主要提供了与当前窗口加载的文档的有关信息；它既是`window`对象中的属性，也是`document`对象的属性，即`window.location`和`document.location`引用的是同一个对象
+这个对象主要提供了与当前窗口加载的文档的有关信息；它既是`window`对象中的属性，也是`document`对象的属性，即`window.location`和`document.location`引用的是同一个对象：`alert(window.location === document.location); //true`
 
 这个对象包括如下属性（这些属性的值都是一个字符串）：
 
@@ -203,13 +207,23 @@ function getQueryStringArgs() {
 
 `navigator`对象提供了一些属性和方法用来识别客户端浏览器，详细信息参考`《JavaScript高级程序设计》`
 
-#### screen history对象
+#### screen 对象
 
-`screen`对象和`history`对象在实际开发中使用的比较少，详细信息可以参考`《JavaScript高级程序设计》`
+`screen`对象在实际开发中使用的比较少，详细信息可以参考`《JavaScript高级程序设计》`
+
+#### history对象
+
+`history`对象保存着从窗口打开那一刻起用户的浏览记录，每一个浏览器窗口、标签页和框架都有自己的`history`对象和特定的`window`对象相关联
+
+> 由于安全的原因，开发人员无法获取用户浏览过的`URL`，但是可以使用方法控制浏览器的后退和前进
+
+`history.go()`方法可以接受一个数字的参数来进行向前或者向后跳转，`1`表示前进一页（如果用户有后退过），`-1`表示后退一页；也可以传递一个字符串参数，浏览器会前进或者后退到最近一个包含这个字符串的记录页面，如果历史记录中不包含这个字符串，则什么也不做
+
+`history.length`属性可以用来获取本窗口/标签页/框架中浏览的页面记录的数量
 
 ### DOM
 
-`DOM`是针对HTML和XML文档的一个API。`DOM`描绘了一个层次化的节点树，允许开发人员添加、移除和修改页面的一部分
+`DOM`是针对HTML和XML文档的API接口。`DOM`描绘了一个层次化的节点树，允许开发人员添加、移除和修改页面的一部分
 
 #### 节点层次
 
@@ -225,9 +239,7 @@ function getQueryStringArgs() {
     </body>
 </html>
 ```
-`document`节点是每个文档的根节点
-
-上面的文档中，`document`节点只有一个子节点`<html>`元素，称为**文档元素**。文档元素是最外层的元素，文档中的其他元素都应该包含在文档元素中，一个页面只能有一个文档元素。在HTML页面中，文档元素就是`<html>`元素；在XML中没有预定义的文档元素
+`document`节点是每个文档的根节点，`document`节点只有一个子节点`<html>`元素，称为**文档元素**。文档元素是最外层的元素，文档中的其他元素都应该包含在文档元素中，一个页面只能有一个文档元素。在HTML页面中，文档元素就是`<html>`元素；在XML中没有预定义的文档元素
 
 HTML中总共有12种节点类型，这些类型都继承自一个基类--`Node`：
 
@@ -254,7 +266,7 @@ Node.NOTATION_NODE(12)
 
 可以使用`nodeName`和`nodeValue`属性获取节点名称和值，根据节点类型这两个属性并不是总是有意义：如果是一个元素节点，则`nodeName`的值为标签名，`nodeValue`的值为`null`
 
-每一个节点都有一个`childNodes`属性，这个属性的值为一个`NodeList`对象。可以通过索引或者`item()`方法传递一个数值参数获取其中值，并且这个对象还有一个`length`属性表示元素个数，但它并不是`Array`对象的实例。`NodeList`总是实时的反应出当前DOM结构的变化
+每一个节点都有一个`childNodes`属性，这个属性的值为一个`NodeList`对象。可以通过索引或者`item()`方法传递一个数值参数获取其中值，并且这个对象还有一个`length`属性表示元素个数（或者这个`NodeList`对象那一刻的元素个数），但它并不是`Array`对象的实例。`NodeList`总是实时的反应出当前DOM结构的变化
 
 下面的代码可以将一个`NodeList`对象实例转换为一个数组：
 
@@ -324,7 +336,7 @@ removeChild()
 
 > 非IE浏览器中可以访问`Docuemnt`类型的构造函数和原型；所有浏览器中都可以访问`HTMLDocument`类型的构造函数和原型
 
-访问`document`子节点时可以使用`document.docuemntElement`属性直接取得`<html>`元素节点（`document`对象唯一的元素节点）；另外还有一个`document.body`属性直接指向`<body>`元素节点
+访问`document`子节点时可以使用`document.documentElement`属性直接取得`<html>`元素节点（`document`对象唯一的元素节点）；另外还有一个`document.body`属性直接指向`<body>`元素节点
 
 `Document`类型通常存在的另外一个子节点类型是`DocumentType`，`<!DOCTYPE>`被看成是与文档其他部分不同的实体，可以通过`document.doctype`属性获取文档类型信息
 
@@ -396,9 +408,9 @@ document.getElementsByName()
 *   `lang`：元素内容的语言代码
 *   `dir`：语言的方向，即从左到右或者从右到左
 
-上面几个属性都是可读写的，但是只有`className`会实时的反应当前的值
+> 上面几个属性都是可读写的，但是只有`className`会实时的反应当前的值
 
-`《JavaScript高级程序设计》 p263`列出了`HTML`中所有元素和类型的对应
+`《JavaScript高级程序设计》 p263`列出了`HTML`中所有元素名称和在`DOM`类型对象名的的对应
 
 **`元素属性操作`**
 
@@ -511,7 +523,7 @@ document.body.appendChild(element);
 
 > 也可以为一个元素节点添加多个文本子节点，这样显示时所有的文本子节点的文本会连接在一起，中间没有空格
 
-如果文档中存在相邻的同胞文本节点或者相邻的文本子节点时，可以使用`Node`对象类型实例的`normalize()`方法来合并相邻的文本节点，这是合并后的文本节点内容`nodeValue`等于合并前所有文本节点内容连接起来的值
+如果文档中存在相邻的同胞文本节点或者相邻的文本子节点时，可以使用`Node`对象类型实例的`normalize()`方法来合并相邻的文本节点，这时合并后的文本节点内容`nodeValue`等于合并前所有文本节点内容连接起来的值
 
 > 浏览器在解析文档时不会创建两个相邻的文本节点
 
@@ -933,7 +945,7 @@ function contains(refNode, otherNode) {
 
 > 同`innerHTML`属性，为这个属性赋值时同样会对字符串中包含的`HTML`语法字符进行编码
 
-> `IE` `Safari 3+` `Opera 8+` `Chrome`支持这个属性，`firefox`支持另外一个属于`DOM Level 3`规范的功能相同的属性`textContent`
+> `IE` `Safari 3+` `Opera 8+` `Chrome`支持这个属性，`firefox`支持另外一个属于`DOM Level 3`规范的功能相同的属性`textContent`（最新版本的火狐也支持`innerText`）
 
 **`滚动相关的方法`**
 
@@ -968,6 +980,33 @@ var supportDOM2XML = document.implementation.hasFeature("XML", "2.0");
 
 有了`XML`命名空间的支持，不同`XML`文档的元素就可以混合在一起；`HTML`不支持`XML`命名空间，但是`XHTML`支持`XML`命名空间；命名空间使用`xmlns`属性来指定
 
+`Document类型` `Node类型` `NamedNodeMap类型`都增加了和命名空间相关的操作`DOM`和相关数据类型的属性和方法：
+
+```javascript
+Node.localName
+Node.namespaceURI
+Node.prefix
+Node.isDefaultNamespace(namespaceURI)
+Node.lookupNamespaceURI(prefix)
+Node.lookupPrefix(namespaceURI)
+
+Document.createElementNS(namespaceURI, tagName)
+Document.createAttributeNS(namespaceURI, attributeName)
+Document.getElementsByTagNameNS(namespaceURI, tagName)
+
+Element.getAttributeNS(namespaceURI, localName)
+Element.getAttributeNodeNS(namespaceURI, localName)
+Element.getElementsByTagNameNS(namespaceURI, tagName)
+Element.hasAttributeNS(namespaceURI, localName)
+Element.removeAttributeNS(namespaceURI, localName)
+Element.setAttributeNS(namespaceURI, qualifiedName, value)
+Element.setAttributeNodeNS(attNode)
+
+NamedNodeMap.getNamedItemNS(namespaceURI, localName)
+NamedNodeMap.removeNamedItemNS(namespaceURI, localName)
+NamedNodeMap.setNamedItemNS(node)
+```
+
 **`DocumentType类型的变化`**
 
 `DocumentType`类型新增了三个属性：`publicId` `systemId` `internalSubset`；前两个属性表示的是文档声明中的两个信息段，这两个信息段在`DOM1`中无法访问到，例如：
@@ -984,7 +1023,17 @@ var supportDOM2XML = document.implementation.hasFeature("XML", "2.0");
 
 **`Document类型的变化`**
 
-**`Node类型的变化`**
+`Document类型`新增了`importNode()`方法，使用这个方法可以将从一个文档中获取的节点添加到另外一个文档中。在`DOM`中每一个节点都有一个`ownerDocument`属性，表示所属的文档；当使用`appendChild()`方法添加的参数节点和调用节点的`ownerDocument`不同时，会发生错误。而使用`document.importNode()`则可以更改参数节点的这个属性
+
+`document.importNode()`方法接受两个参数：要导入的节点、是否导入所有子节点；返回值是参数节点的一个副本，并且更改其`ownerDocument`和调用`document`相同；然后可以使用`appendChild()`方法添加到当前文档：
+
+```javascript
+var newNode = document.importNode(oldNode, true);
+document.body.appendChild(newNode);
+```
+> 这个方法在`HTML`中不常用，但是在`XML`中使用的比较多
+
+其他的一些方法和属性支持的浏览器比较少，这里不再详述
 
 **`框架的变化`**
 
@@ -1052,6 +1101,8 @@ setProperty(propertyName, value, priority)  将给定的属性设置为相应的
 `DOM2`级样式增强了`document.defaultView`对象，提供了`getComputedStyle()`方法；这个方法接受两个参数：要取得计算样式的元素和一个伪元素字符串（例如`":after"`，如果不需要伪元素信息也可以为`null`）；这个方法返回一个`CSSStyleDeclaration`对象（和`style`属性值的类型相同），其中包含了所有计算出的样式
 
 `IE`浏览器不支持`getComputedStyle()`，但是`style`对象中有一个`currentStyle`属性，这个属性是也是`CSSStyleDeclaration`类型的实例，包含当前元素所有计算出的样式
+
+> 计算出的样式是不能更改的，另外默认的样式也会表现为计算出的样式
     
 ##### 操作样式表
 
@@ -1201,7 +1252,7 @@ function getElementTop(element) {
 
 **`客户区大小`**
 
-元素的客户区大小（client dimension）是指元素的内容及其内边距所占空间的大小；有两个属性可以用来获取这些值：`clientWidth` `clientHeight`，这两个属性分别表示，内容宽高加上分别的两个内边距的宽度
+元素的客户区大小（client dimension）是指元素的内容及其内边距所占空间的大小；有两个属性可以用来获取这些值：`clientWidth` `clientHeight`
 
 > 这两个属性的值不包括滚动条的大小；并且同样是只读的，而且每次访问都需要重新计算
 
@@ -1236,6 +1287,13 @@ scrollTop           被隐藏在内容区域上方的像素数；为这个属性
 
 后面两个属性即可以获取当前元素的滚动状态，也可以设置元素的滚动位置。在元素尚未滚动时这两个属性的值为0，如果元素被滚动了这两个指标是滚动后隐藏的部分的大小
 
+因为在没有包含滚动条时，不同浏览器中的`scrollWidht/clientWidth` `scrollHeight/clientHeight`属性的值可能不相同（是否包含滚动条的宽度），所以需要取两个中的最大值才能获得准确的结果：
+
+```javascript
+var docHeight = Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight);
+var docWidth = Math.max(document.documentElement.scrollWdith, document.documentElement.clientWdith);
+```
+
 下面是一个回到顶部的代码：
 
 ```javascript
@@ -1247,6 +1305,51 @@ function scrollToTop(element) {
 ```
 
 **`确定元素大小`**
+
+常见浏览器都为每一个元素提供一个`getBoundingClientRect()`方法，这个方法返回一个包含`left` `top` `right` `bottom`四个属性的矩形对象，这四个属性表示元素相对于页面视口的位置
+
+> 在`IE8`中上述四个属性值的起点坐标为`(2,2)`，而其他浏览器则为`(0,0)`
+
+下面是跨浏览器获取元素大小的代码：
+
+```javascript
+function getBoundingClientRect(element) {
+    var scrollTop = document.documentElement.scrollTop;
+    var scrollLeft = document.documentElement.scrollLeft;
+    
+    if(element.getBoundingClientRect) {
+        if(typeof arguments.callee.offset != "number") {
+            var temp = document.createElement("div");
+            temp.style.cssText = "position:absolute; left:0; top:0;";
+            document.body.appendChild(temp);
+            arguments.callee.offset = -temp.getBoundClientRect().top - scrollTop;
+            document.body.removeChild(temp);
+            temp = null;
+        }
+        
+        var rect = element.getBoundingClientRect();
+        var offset = arguments.callee.offset();
+        
+        return {
+            left: rect.left + offset,
+            right: rect.right + offset,
+            top: rect.top + offset,
+            bottom: rect.bottom + offset
+        };
+    } else {
+        var actualLeft = getElementLeft(element);
+        var actualTop = getElementTop(element);
+        
+        return {
+            left: actualLeft - scrollLeft,
+            right: actualLeft + element.offsetWidth - scrollLeft,
+            top: actualTop - scrollTop,
+            bottom: actualTop + element.offsetHeight - scrollTop
+        };
+    }
+}
+```
+> 上面的代码中使用了`arguments.callee`所以不能在严格模式下使用；另外这个函数依赖前面章节中的`getElementLeft()` `getElementTop()`函数
 
 #### 遍历
 
@@ -1318,11 +1421,11 @@ previousSibling()   遍历到当前节点的上一个同辈节点
 
 范围用来选取文档中的一个区域，而不必考虑节点的界限；这种选择在后台完成，对用户来说是不可见的
 
-当前几乎所有浏览器都实现了`DOM`中的范围；而`IE8`之前的浏览器则以自己的方式实现了范围（SB）
+当前几乎所有浏览器都实现了`DOM`中的范围；而`IE8`之前的浏览器则以自己的方式实现了范围
 
 ##### `DOM`范围
 
-如果浏览器支持范围，就可以使用`document.createRange()`方法来创建一个`DOM`范围，然后就可以使用它在后台选择文档中的特定部分；如果对创建的返回设置位置之后，还可以针对范围的内容执行更多种操作
+如果浏览器支持范围，就可以使用`document.createRange()`方法来创建一个`DOM`范围，然后就可以使用它在后台选择文档中的特定部分；如果对创建的范围设置位置之后，还可以针对范围的内容执行更多种操作
 
 > 新创建的范围和创建它的文档对象`document`关联在一起，不能用于别的文档
 

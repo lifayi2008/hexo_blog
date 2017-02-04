@@ -7,9 +7,9 @@ categories: JavaScript
 ### 事件
 
 `JavaScript`和`HTML`之间的交互是以事件的方式进行的；事件就是文档或者浏览器窗口中发生的一些特定的交互瞬间。`DOM2`开始对浏览器中的事件进行规范，几乎所有的浏览器都实现了`DOM2`级事件的核心模块部分（IE8除外）
-
-下面是事件中的一些需要理解的核心部分：
 <!-- more -->
+下面是事件中的一些需要理解的核心部分：
+
 #### 事件流
 
 `IE`和`Netscape`使用的分别是`事件冒泡流`和`事件捕获流`
@@ -47,7 +47,7 @@ categories: JavaScript
 ```javascript
 <input type="button" value="Click Me" onclick="alert('Clicked')" />
 ```
-> 不能在属性值中指定未经转义的`HTML`语法字符：`&` `"` `<` `>`（可以使用`HTML`实体来代替）
+> 不能在属性值中使用未经转义的`HTML`语法字符：`&` `"` `<` `>`（可以使用`HTML`实体来代替）
 
 也可以将元素事件属性的值指定为一个在别处定义的 **函数名的调用** （这实际上还是`JS`代码调用）：
 
@@ -62,6 +62,8 @@ categories: JavaScript
 > 在属性值中执行的代码可以访问全局作用域中的任何代码（调用任意函数）
 
 在事件属性值中调用的函数可以访问如下属性：`event`表示事件对象本身；`this`等于事件目标元素（因为事件处理程序是在元素的作用域范围内执行的）
+
+> 实际测试中这里的`this`表示`window`对象
 
 > 可以通过扩展作用域的方式来直接在事件属性值中访问其他作用域中的属性；但是要注意这可能在不同的浏览器会导致不同的结果
 
@@ -182,6 +184,8 @@ btn.addEventListener("click", function(event) {
 `stopPropagation()` | Function | 只读 | 取消事件的进一步捕获或者冒泡（需要`bubbles`为`true`）
 `trusted` | Boolean | 只读 | 为`true`表示事件是浏览器生成的，否则表示通过`JS`创建的（DOM3新增）
 `view` | AbstractView | 只读 | 与事件关联的抽象视图。等同于发生事件的`window`对象
+
+> `trusted`在大多数浏览器中都未实现
 
 如果将事件处理程序指定给了目标元素（即绑定事件处理程序的元素和触发事件的元素相同），则`this` `currentTarge` `target`包含相同的值；因为事件流的存在所以这三个值可能不同，比如如果给`<body>`元素绑定了事件，这时如果我们点击`<body>`中的一个按钮时，`target`为这个按钮元素，而`this`和`currentTarget`为`<body>`元素
 
@@ -339,7 +343,7 @@ EventUtil.addHandler(window, "unload", function(event) {
 
 **`select`**
 
-当用户选择文本框（`<input>` `textarea`）中的一或者多个字符时被触发
+当用户选择文本框（`<input>` `<textarea>`）中的一或者多个字符时被触发
 
 **`resize`**
 
@@ -544,7 +548,7 @@ var EventUtil = {
 
 `DOM3`中为键盘事件对象添加了`key` `char` `location`属性和`getModifierState()`方法。`key`和`char`属性是为了取代`keyCode` `charCode`属性，它的值是一个字符串：在按下某个字符键时，`key`和`char`就是相应的字符；在按下某一个非字符按键时，`key`的值是相应的键名，`char`的值是`null`
 
-> 因为目前主浏览器还未实现这些方法，所有在实际开发中不推荐使用
+> `firefox` `chrome`的最新版浏览器已经支持这些方法和属性，其他浏览器支持情况请在使用前测试
 
 `DOM3`新增一个在文本被插入文本框之前触发的文本事件：`textInput`；这个事件和`keypress`的不同之处在于只有可编辑区域才会触发前者，而任何可以获取焦点的元素都可以触发后者；另外，前者在只有在按下能够输入的实际字符按键时才会触发，而后者在按下那些能影响文本显示的按键时也会触发（如退格键）
 
@@ -639,11 +643,95 @@ var isSupproted = document.implementation.hasFeature("MutationEvents", "2.0");
 
 #### 模拟事件
 
+模拟事件即主动的触发某个浏览器事件，模拟事件的效果和常规事件一样。`IE9` `Opera` `Firefox` `Chrome` `Safari`浏览器都支持模拟事件，`IE`的模拟事件略有不同
+
+##### DOM中的事件模拟
+
+可以调用`document.createEvent()`方法来创建一个`event`对象，这个方法接受一个参数：要创建的事件类型的字符串；在`DOM2`中这些字符串都使用英文复数形式，`DOM3`中都变成了单数形式；事件类型字符串可以是下面几种：
+
+```javascript
+UIEvents    一般化的UI事件
+MouseEvents     一般化的鼠标事件
+MutationEvents      一般化的DOM变动事件
+HTMLEvents      一般化的HTML事件
+```
+
+创建一个模拟事件对象之后，还需要调用事件特定的初始化方法来初始化这个对象
+
+然后就可以使用节点的`dispatchEvent()`方法来在这个节点上触发这个事件（所有支持事件`DOM`节点都支持这个方法）；事件触发之后就和常规事件无异
+
+**`模拟鼠标事件`**
+
+将`"MouseEvents"`作为参数传递给`document.createEvent()`方法，这个方法返回的对象有一个`initMouseEvent()`方法，这个方法接受以下15个参数用来设置该鼠标事件的信息：
+
+```javascript
+type(字符串)  表示要触发的事件类型，如"click"
+bubbles(布尔值)     表示事件是否应该冒泡。为了精确的模拟鼠标事件应该将这个参数设置为true
+cancelable(布尔值)  表示事件是否可以取消。同样应该设置为true
+view(AbstractView)  与事件关联的视图。这个参数应该设置为document.defaultView
+detail(整数)    与事件有关的详细信息。通常为0
+screenX(整数)   事件相对于屏幕的X坐标
+screenY(整数)   事件相对于屏幕的Y坐标
+clientX(整数)   事件相对于视口的X坐标
+clientY(整数)   事件相对于视口的Y坐标
+ctrlKey altKey shiftKey metaKey(布尔值)  表示是否按下相应的键。默认是false
+button(整数)    表示按下哪一个鼠标键。默认是0
+relatedTarget(对象)  表示与事件相关的对象 这个参数只在模拟mouseover或者mouseout时使用
+```
+> 这些参数与鼠标事件的`event`对象的属性一一对应；再触发事件时，浏览器要用到前四个参数（因此需要正确设置），后几个参数属于事件对象相关的
+
+将这个初始化过的`event`对象传给节点的`dispatchEvent()`方法时，浏览器会自动设置这个`event`的`target`属性
+
+**`模拟键盘事件`**
+
+`DOM2`中没有模拟键盘事件的方法；`DOM3`中给`document.createEvent()`方法传入`"KeyboardEvent"`就可以创建一个键盘事件，返回对象的`initKeyEvent()`方法接受如下参数：
+
+```javascript
+前4个参数和模拟鼠标事件一样，但是第一个参数应该是键盘相关的事件：keydown keyup
+key(整数)   表示按下键的键码
+location(整数)  0表示主键盘，1表示左，2表示右，3表示数字键盘，4表示移动设备，5表示手柄
+modifiers(字符串)   空格分隔的修改键列表，比如"Shift Ctrl"
+repeat(整数)    在一行中按了这个键多少次
+```
+> `DOM3`中不提倡使用`keypress`事件
+
+在`Firefox`中调用`document.createEvent()`方法传入一个`"KeyEvents"`字符串就可以创建一个键盘事件，返回对象的`initKeyEvent()`方法接受如下参数：
+
+```javascript
+前四个参数和鼠标模拟事件一样
+ctrlKey altKey shiftKey metaKey(布尔值)  表示是否按下相应的键。默认是false
+keyCode(整数)   被按下或者释放键的键码。这个参数对`keydown` `keyup`事件有用，默认是0
+charCode(整数)  通过按键生成的字符的ASCII编码。这个参数对`keypress`事件有用，默认为0
+```
+
+在其他浏览器中需要使用`"Events"`作为参数创建一个通用的事件，然后再向事件对象中添加键盘特有的信息：
+
+```javasscript
+var textbox = document.getElementById("myTextbox");
+var event = document.createEvent("Events");
+
+event.initEvent(type, bubbles, cancelable);
+event.view = document.defaultView;
+event.altKey = false;
+event.ctrlKey = false;
+event.shiftKey = false;
+event.metaKey = false;
+event.keyCode = 65;
+event.charCode = 65;
+
+textbox.dispatchEvent(event);
+```
+> 这种方式的模式事件方法不会向文本框输入数据（无法真正的模拟键盘事件）
+
+**`模拟其他事件和自定义事件`**
+
+##### IE8之前的模拟事件
+
 ### 表单脚本
 
 #### 表单的基础知识
 
-在`JavaScript`中表单对应的是`HTMLForm-Element`类型，这个类型继承了`HTMLElement`，因此和其他元素类型具有相同的属性和方法；除此之外还有如下属性和方法：
+在`JavaScript`中表单对应的是`HTMLFormElement`类型，这个类型继承了`HTMLElement`，因此和其他元素类型具有相同的属性和方法；除此之外还有如下属性和方法：
 
 ```javascript
 acceptCharset   服务器能够处理的字符集；等价于form元素中的accept-charset属性
@@ -651,14 +739,14 @@ action  表单提交的URL；等价于form元素中的action属性
 elements    表单中所有控件集合（HTMLCollection类型）
 enctype     请求的编码类型；等价于form元素中的enctype属性
 length      表单中控件的数量
-method      要发送的请求类型；等价于form元素中的method属性
+method      要发送的请求类型名称字符串；等价于form元素中的method属性
 name        表单的名称；等价于form元素中的name属性
 reset()     将表单所有域重置为默认值的方法
 submit()    提交表单的方法
 target      用于发送请求和接收相应的窗口名称；等价于form元素的target属性
 ```
 
-> 下文中的字段是指`HTML`元素在`HTMLForm-Element`对象类型中的表示，所以元素和字段混用
+> 下文中的字段是指`HTML`元素在`HTMLFormElement`对象类型中的表示，所以元素和字段混用
 
 要取得页面中的表单元素，除了可以使用`getElementById()`方法之外，还可以使用`document.forms`属性，这个属性包含页面中的所有表单的集合，在这个集合中可以通过索引或者表单的`name`属性来访问特定的表单：
 
@@ -1051,7 +1139,7 @@ selectbox.options[0] = null;
 var selectbox1 = document.getElementById("selLocation1");
 var selectbox2 = document.getElementById("selLocation2");
 
-selectbox2 = appendChild(selectbox1.options[0]);
+selectbox2.appendChild(selectbox1.options[0]);
 ```
 
 重新排序一个选择框我们可以使用`DOM`的`insertBefore()`方法：
@@ -1179,7 +1267,7 @@ EventUtil.addHandler(window, "message", function(event) {
 
 `HTML5`以`IE`的实例为基础制定了拖放的规范；`Firefox3.5` `Safari3` `Chrome`页根据`HTML5`规范实现了原生拖放功能；拖放可以在框架间、窗口间甚至在应用间进行
 
-**`拖放事件`**
+##### 拖放事件
 
 通过拖放事件，可以控制拖放相关的各个方面：确定哪里发生了拖放事件、是在被拖动元素上触发还是在放置目标上触发；拖动元素时将依次触发如下事件：`dragstart` `drag` `dragend`
 
@@ -1191,9 +1279,9 @@ EventUtil.addHandler(window, "message", function(event) {
 
 > 上述三个事件的目标都是作为放置目标的元素
 
-**`自定义放置目标`**
+##### 自定义放置目标
 
-虽然所有元素都支持放置目标事件，但是这些元素默认是不允许放置的；如果拖动元素经过不允许放置的元素，则不会发生`drop`事件；不过可以把任何元素变成有效的放置目标，方法时重写`drogenter`和`dragover`事件的默认行为：
+虽然所有元素都支持放置目标事件，但是这些元素默认是不允许放置的；如果拖动元素经过不允许放置的元素，则不会发生`drop`事件；不过可以把任何元素变成有效的放置目标，方法是重写`drogenter`和`dragover`事件的默认行为：
 
 ```javascript
 var droptarget = document.getElementById("droptarget");
@@ -1290,6 +1378,23 @@ var text = dataTransfer.getData("Text");
 #### 媒体元素
 
 #### 历史状态管理
+
+`HTML5`通过更新`history`对象为管理历史状态提供了方便。通过`hashchange`事件可以知道`URL`在什么时候发生了变化（即页面中该有所反应）；通过状态管理`API`能够在不加载新页面的情况下更改浏览器的`URL`
+
+`history.pushState()`方法可以将新的状态信息加入历史状态栈，这个方法接收三个参数：状态对象、新的状态标题和可选的相对`URL`；调用这个方法之后，浏览器地址栏也会变成新的`URL`(`location.href`也会被更改)，但是并没有发送新的请求
+
+> 第二个参数目前所有浏览器都未实现，可以传空字符串
+
+> 第一个参数应该尽可能提供初始化页面状态所需的各种信息
+
+调用这个方法创建一个新的历史状态之后，浏览器上的后退按钮可以使用；当按下后退按钮时会触发`window`对象的`popstate`事件，这个 **事件对象** 的`state`属性包含着当初以第一个参数传递给`pushState()`方法的状态对象
+
+拿到这个状态对象之后我们必须手动将当前页面重置为状态对象中数据表示的状态（即状态对象中通常保存的是当前页面所需的参数）
+
+要更新当前状态可以调用`replaceState()`方法，所需的两个参数和`pushState()`前两个相同；调用这个方法不会在历史状态中创建新的状态，只会重写当前状态
+
+> 在使用`HTML5`状态管理机制时，需要确保使用`pushState()`创造的每一个`URL`，在web服务器上都有一个实际的`URL`与之相对应，否则用户单击刷新按钮时会显示404错误
+
 
 ### JSON
 
@@ -1689,6 +1794,32 @@ responseText属性    用于取得相应内容
 **`图像ping`**
 
 **`JSONP`**
+
+`JSONP`是`JSON width padding`（填充式`JSON`）的简写，是应用`JSON`的一种新方法；`JSONP`是被包含在函数调用中的`JSON`:
+
+```javascript
+callback({"name":"Nicholas"});
+```
+
+`JSONP`由两部分组成：回调函数和数据。回调函数时当相应到来时应该在页面中调用的函数，回调函数的名字一般在请求中指定；而数据是传入回调函数中的`JSON`数据。下面是`JSONP`通常请求的格式：
+
+```javascript
+http://freegeoip.net/json/?callback=handleResponse
+```
+
+`JSONP`是通过动态的`<script>`元素来使用的，使用时可以为`src`属性指定一个跨域的`URL`。这里的`<script>`元素和`<img>`元素类似，都可以从其他域加载资源。被加载的资源在请求完成`JSONP`相应加载到页面中以后就会立即执行：
+
+```javascript
+function handlerResponse(response) {
+    alert("Your at IP address " + response.ip + ", which is in " + response.city + ", " + response.region_name);
+}
+
+var script = document.createElement("script");
+script.src = "http://freegeoip.net/json/?callback=handleResponse";
+document.body.insertBefore(script, document.body.firstChild);
+```
+
+`JSONP`技术可以直接访问相应文本，支持在浏览器和服务器之间双向通信；不过也有两点不足：如果请求的域不是你能控制的则安全性是一个问题，另外很难确定`JSONP`请求是否失败；`HTML5`中为`<script>`元素新增了一个`onerror`事件处理程序，但是目前还未得到任何浏览器支持
 
 **`Comet`**
 
